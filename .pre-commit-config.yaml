@@ -1,0 +1,37 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.0.1
+    hooks:
+    -   id: check-added-large-files
+    -   id: check-ast
+    -   id: check-case-conflict
+    -   id: check-executables-have-shebangs
+    -   id: check-yaml
+    -   id: end-of-file-fixer
+    -   id: trailing-whitespace
+    -   id: requirements-txt-fixer
+  - repo: https://github.com/asottile/pyupgrade
+    rev: v2.29.1
+    hooks:
+    -   id: pyupgrade
+        args: [--py39-plus, --keep-runtime-typing]
+  - repo: https://github.com/pycqa/isort
+    rev: 5.10.1
+    hooks:
+    -   id: isort
+        args: ["--verbose"]
+        #   "--profile", "black",
+        #   "--src_paths", "mh"
+        # ]
+  - repo: https://github.com/psf/black
+    rev: 21.11b1
+    hooks:
+      - id: black
+        args: [
+          "--config", "./pyproject.toml",
+        ]
+        language_version: python3
+  - repo: https://github.com/kynan/nbstripout
+    rev: 0.5.0
+    hooks:
+      - id: nbstripout

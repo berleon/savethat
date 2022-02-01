@@ -1,0 +1,2 @@
+local_path="${PROJECT_ROOT}/test/data"
+remote_prefix="test"
