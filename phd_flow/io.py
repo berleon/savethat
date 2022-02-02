@@ -25,7 +25,6 @@ class Storage(metaclass=abc.ABCMeta):
     @abc.abstractproperty
     def storage_path(self) -> Path:
         """The path to the local storage."""
-        pass
 
     def __truediv__(self, key: PATH_LIKE) -> Path:
         """Shortcut to get the local path of the `key`.
@@ -37,7 +36,6 @@ class Storage(metaclass=abc.ABCMeta):
     @contextlib.contextmanager
     def open(self, key: PATH_LIKE, mode: str = "r") -> Iterator[IO]:
         """Opens the file. Creates any none existing directories."""
-        pass
 
     @abc.abstractmethod
     def upload(self, key: PATH_LIKE) -> str:
@@ -45,7 +43,6 @@ class Storage(metaclass=abc.ABCMeta):
 
         `key` must reference a directory.
         """
-        pass
 
     @abc.abstractmethod
     def download(self, key: PATH_LIKE) -> Path:
@@ -53,12 +50,10 @@ class Storage(metaclass=abc.ABCMeta):
 
         `key` must reference a directory.
         """
-        pass
 
     @abc.abstractmethod
     def download_file(self, key: PATH_LIKE) -> None:
         """Downloads the file given by `key`."""
-        pass
 
     @abc.abstractmethod
     def remote_ls(
@@ -70,7 +65,6 @@ class Storage(metaclass=abc.ABCMeta):
             key: the path to list remotely.
             recursive: if true, list the directory recursive.
         """
-        pass
 
     @abc.abstractmethod
     def remove(
@@ -86,7 +80,6 @@ class Storage(metaclass=abc.ABCMeta):
             local: remove the key locally
             remote: remove the key on the cloud storage
         """
-        pass
 
 
 class _SimulatedB2API:
