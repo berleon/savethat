@@ -18,7 +18,7 @@ def test_b2_upload(storage: io.B2Storage) -> None:
     path = storage / key
     path.mkdir(exist_ok=True)
     (path / "test_file").write_text("hello world!")
-    assert storage.find_local(key) == path
+    assert storage / key == path
     storage.upload(key)
     shutil.rmtree(path)
     assert not path.exists()

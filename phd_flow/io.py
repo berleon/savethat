@@ -3,19 +3,17 @@ from __future__ import annotations
 import abc
 import contextlib
 import dataclasses
-import json
 import os
 import shutil
 import sys
 import time
 from pathlib import Path
-from typing import IO, Any, Iterator, Optional, TypeVar, Union
+from typing import IO, Iterator, Optional, TypeVar, Union
 
 import b2sdk.v2 as b2_api
 from loguru import logger
 
 from phd_flow import config as config_mod
-from phd_flow import utils
 
 T = TypeVar("T")
 REMOTE_FILE = TypeVar("REMOTE_FILE")
@@ -23,67 +21,72 @@ REMOTE_FILE = TypeVar("REMOTE_FILE")
 PATH_LIKE = Union[str, Path]
 
 
-class Serializable:
-    def state_dict(self) -> dict[str, Any]:
-        raise NotImplementedError()
-
-    @classmethod
-    def from_state_dict(cls: T, state: dict[str, Any]) -> T:
-        raise NotImplementedError()
-
-
-class Storage:
-    @abc.abstractmethod
-    def get_local_path(self) -> Path:
+class Storage(metaclass=abc.ABCMeta):
+    @abc.abstractproperty
+    def storage_path(self) -> Path:
+        """The path to the local storage."""
         pass
 
     def __truediv__(self, key: PATH_LIKE) -> Path:
-        return self.get_local_path() / key
+        """Shortcut to get the local path of the `key`.
 
-    def find_local(self, key: PATH_LIKE) -> Path:
-        if (self / key).exists():
-            return self.get_local_path() / key
-        raise KeyError(f"Did not found key: {key}")
+        Equivalent to `storage.storage_path / key`."""
+        return self.storage_path / key
 
     @abc.abstractmethod
     @contextlib.contextmanager
     def open(self, key: PATH_LIKE, mode: str = "r") -> Iterator[IO]:
+        """Opens the file. Creates any none existing directories."""
         pass
 
     @abc.abstractmethod
     def upload(self, key: PATH_LIKE) -> str:
+        """Uploads the directory referred to by `key`.
+
+        `key` must reference a directory.
+        """
         pass
 
     @abc.abstractmethod
     def download(self, key: PATH_LIKE) -> Path:
+        """Downloads the directory referred to by `key`.
+
+        `key` must reference a directory.
+        """
         pass
 
     @abc.abstractmethod
     def download_file(self, key: PATH_LIKE) -> None:
+        """Downloads the file given by `key`."""
         pass
 
     @abc.abstractmethod
-    def remote_ls(self, key: PATH_LIKE = "") -> Iterator[Path]:
+    def remote_ls(
+        self, key: PATH_LIKE = "", recursive: bool = False
+    ) -> Iterator[Path]:
+        """Returns a list of all remote directories.
+
+        Args:
+            key: the path to list remotely.
+            recursive: if true, list the directory recursive.
+        """
         pass
 
     @abc.abstractmethod
     def remove(
         self, key: PATH_LIKE, local: bool = True, remote: bool = False
     ) -> Iterator[Path]:
-        pass
+        """Removes the `key` locally or remotely.
 
-    def load_state(
-        self,
-        key: str,
-        download: bool = True,
-    ) -> Serializable:
-        if download:
-            model_dir = self.download(key)
-        else:
-            model_dir = self.find_local(key)
-        state = json.loads((model_dir / "state.json").read_text())
-        cls = utils.load_class(state["__module__"], state["__qual_name__"])
-        return cls.from_dict(state)
+        Use with care, this will also delete any subdirectories.
+        It is not allowed to remove a `key` only on the remote.
+
+        Args:
+            key: key to remove
+            local: remove the key locally
+            remote: remove the key on the cloud storage
+        """
+        pass
 
 
 class _SimulatedB2API:
@@ -145,14 +148,15 @@ class B2Storage(Storage):
         assert isinstance(b2_bucket, str)
         return B2Storage(
             local_path=Path(config["local_path"]),
-            remote_path=Path(config["remote_prefix"]),
+            remote_path=Path(config["b2_prefix"]),
             b2_bucket=b2_bucket,
             b2_key_id=b2_key_id,
             b2_key=b2_key,
             _bucket=bucket,
         )
 
-    def get_local_path(self) -> Path:
+    @property
+    def storage_path(self) -> Path:
         return self.local_path
 
     @property
@@ -187,8 +191,12 @@ class B2Storage(Storage):
     def ls(self, key: PATH_LIKE) -> Iterator[Path]:
         yield from (self.local_path / key).iterdir()
 
-    def remote_ls(self, path: PATH_LIKE = "") -> Iterator[Path]:
-        for fid, _ in self.bucket.ls(str(self.remote_path / path)):
+    def remote_ls(
+        self, key: PATH_LIKE = "", recursive: bool = False
+    ) -> Iterator[Path]:
+        for fid, _ in self.bucket.ls(
+            str(self.remote_path / key), recursive=recursive
+        ):
             yield Path(fid.file_name[len(str(self.remote_path)) :])
 
     def remove(
@@ -264,7 +272,11 @@ class B2Storage(Storage):
         return destination
 
     def upload(self, key: PATH_LIKE) -> str:
-        local_path = self.find_local(key)
+        local_path = self / key
+        if not local_path.is_dir():
+            raise NotADirectoryError(f"Can only upload directories. Got: {key}")
+        if not local_path.exists():
+            raise FileNotFoundError(f"Directory does not exists. Got: {key}")
         source = str(local_path)
         assert local_path
         destination = self.get_b2_sync_url(key)

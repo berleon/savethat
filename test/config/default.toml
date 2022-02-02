@@ -1,3 +1,3 @@
 local_path="${PROJECT_ROOT}/data"
-remote_prefix="test"
+b2_prefix="test"
 use_b2_simulation=true
