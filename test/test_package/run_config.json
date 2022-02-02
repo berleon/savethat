@@ -1,0 +1,4 @@
+{
+  "dataset": "./test/data/california_tiny.csv",
+  "target": "MedHouseVal"
+}

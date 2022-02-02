@@ -18,7 +18,7 @@
 --ignore-directory=match:/\.mypy.*/
 --ignore-directory=is:htmlcov
 --ignore-directory=is:docs
-
+--ignore-directory=is:test/data/
 
 
 # Git

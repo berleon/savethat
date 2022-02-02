@@ -51,6 +51,7 @@ module = [
     "coverage",
     "reproducible",
     "cpuinfo",
+    "anyconfig",
     "typing_inspect",
 ]
 ignore_missing_imports = true

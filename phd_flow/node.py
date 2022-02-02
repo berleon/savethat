@@ -6,15 +6,14 @@ import dataclasses
 import pickle
 import random
 import sys
-from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable, Generic, Optional, TypeVar, Union
 
 import reproducible as reproducible_mod
-from loguru import logger
 from phd_flow.args import Args
+from phd_flow.log import logger
 
-from phd_flow import config, io, log, utils
+from phd_flow import config, io, utils
 
 T = TypeVar("T")
 ARGS = TypeVar("ARGS", bound="Args")
@@ -128,7 +127,7 @@ class Node(Generic[ARGS, T], metaclass=abc.ABCMeta):
 
         As default, it will return the classname + the current time (isoformat).
         """
-        return cls.__qualname__ + "_" + datetime.utcnow().isoformat()
+        return cls.__qualname__ + "_" + utils.isoformat_now()
 
     def _node_info(self) -> dict[str, str]:
         return {
@@ -218,66 +217,6 @@ def create_node(
     key = node_cls.create_new_key()
     node = node_cls(key, storage, args)
     return node
-
-
-def run_main(
-    package: str,
-    config_file: Optional[io.PATH_LIKE] = None,
-    argv: Optional[list[str]] = None,
-) -> Optional[tuple[Node[ARGS, T], T]]:
-    def print_help() -> None:
-        print("Here is a list with all available actions:", file=sys.stderr)
-        print("   run      Runs a node", file=sys.stderr)
-        print("   list     List all avialbe nodes", file=sys.stderr)
-
-    def print_no_action() -> None:
-        print("Error, no action was given!", file=sys.stderr)
-        print(
-            f"Use `{arg_list[0]} help` to print a list of available actions.",
-            file=sys.stderr,
-        )
-
-    print("Called run_main")
-    utils.import_submodules(package)
-    nodes = {cls.__qualname__: cls for cls in Node.__subclasses__()}
-
-    if argv is None:
-        arg_list = sys.argv
-    else:
-        arg_list = argv
-
-    if config_file is None:
-        config_file = config.find_config_file(config.guess_project_dir(package))
-
-    if len(arg_list) == 1:
-        print_no_action()
-        return None
-
-    action = arg_list[1]
-    if action in ["help", "--help", "-h"]:
-        print_help()
-    elif action == "run":
-        node_name = arg_list[2]
-        node_cls: type[Node[ARGS, T]] = nodes[node_name]  # type: ignore
-
-        created_node: Node[ARGS, T] = create_node(
-            node_cls, config_file, arg_list[3:]
-        )
-        created_node.register_pre_run_hook(
-            lambda n: log.setup_logger(n.output_dir)
-        )
-        result = created_node.run()
-        logger.info(
-            "Finished running Node",
-            key=str(created_node.key),
-            output_dir=str(created_node.output_dir),
-        )
-        return created_node, result
-    elif action == "list":
-        for name, node in nodes.items():
-            print(f"{name}:             {node.__module__}")
-            print(node.__doc__)
-    return None
 
 
 def node_name(node: Union[Node, type[Node]]) -> str:
