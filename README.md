@@ -28,6 +28,7 @@ from sklearn.model_selection import train_test_split
 from phd_flow import logger, node
 
 
+@dataclasses.dataclass
 class FitOLSArgs(node.Args):
     dataset: str  # path to csv dataset
     target: str  # column name of the target
@@ -115,7 +116,7 @@ For now use:
 $ pip install git+https://github.com/berleon/phd_flow.git
 ```
 
-# Basic Concepts
+# Concepts
 
 ## Storage
 

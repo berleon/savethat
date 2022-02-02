@@ -18,12 +18,17 @@ exclude = '''
 )/
 '''
 
+[tool.flake8]
+max-line-length = 80
+max-complexity = 30
+per-file-ignores = [
+  "phd_flow.args.py:E501"
+]
 
 # [tool.isort]
 # line_length = 80
 # src_paths = ''
 # profile = 'black'
-
 
 [tool.pytest.ini_options]
 addopts = "--cov=phd_flow --cov-report html"
@@ -44,5 +49,8 @@ module = [
     "sklearn",
     "sklearn.*",
     "coverage",
+    "reproducible",
+    "cpuinfo",
+    "typing_inspect",
 ]
 ignore_missing_imports = true

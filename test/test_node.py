@@ -1,3 +1,4 @@
+import dataclasses
 import random
 from pathlib import Path
 
@@ -5,6 +6,7 @@ from phd_flow import io
 from phd_flow import node as node_mod
 
 
+@dataclasses.dataclass
 class SampleIntArgs(node_mod.Args):
     max: int
 
@@ -19,6 +21,7 @@ class SampleInt(node_mod.Node[SampleIntArgs, int]):
         return number
 
 
+@dataclasses.dataclass
 class PrintArgs(node_mod.Args):
     key_to_print: str
     n_times: int = 10
@@ -31,8 +34,7 @@ class Print(node_mod.Node[PrintArgs, None]):
 
 
 def test_run_node(storage: io.Storage):
-    args = SampleIntArgs()
-    args.from_dict(dict(max=10))
+    args = SampleIntArgs(max=10)
     storage.remove("test_sample_int", remote=True)
     node = SampleInt("test_sample_int", storage, args)
     assert node.run() <= 10
@@ -45,10 +47,7 @@ def test_run_pipeline(storage: io.Storage):
     pipeline = node_mod.join(
         SampleInt,
         Print,
-        lambda s, i: PrintArgs().from_dict(
-            dict(key_to_print=s.key / "result.txt")
-        ),
+        lambda s, i: PrintArgs(key_to_print=str(s.key / "result.txt")),
     )
-    args = SampleIntArgs()
-    args.from_dict(dict(max=20))
+    args = SampleIntArgs(max=20)
     pipeline("test_pipeline", storage, args).run()

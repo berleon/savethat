@@ -1,40 +1,20 @@
 from __future__ import annotations
 
 import abc
+import copy
 import dataclasses
-import json
 import pickle
 import random
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable, ClassVar, Generic, Optional, TypeVar, Union
+from typing import Any, Callable, Generic, Optional, TypeVar, Union
 
-import tap
+import reproducible as reproducible_mod
 from loguru import logger
+from phd_flow.args import Args
 
 from phd_flow import config, io, log, utils
-
-
-class Args(tap.Tap):
-    def _filter_variables(self, dct: dict[str, Any]) -> dict[str, Any]:
-        to_remove = [
-            key
-            for key, cls in dct.items()
-            if hasattr(cls, "__origin__") and cls.__origin__ is ClassVar
-        ]
-
-        for varname in list(dct.keys()):
-            if varname in to_remove:
-                del dct[varname]
-        return dct
-
-    def _get_annotations(self) -> dict[str, Any]:
-        return self._filter_variables(super()._get_annotations())
-
-    def _get_class_variables(self) -> dict[str, Any]:  # type: ignore
-        return self._filter_variables(super()._get_class_variables())
-
 
 T = TypeVar("T")
 ARGS = TypeVar("ARGS", bound="Args")
@@ -49,19 +29,37 @@ class HookHandle:
         del self.hooks[self.idx]
 
 
-class Node(Generic[ARGS, T], io.Serializable, metaclass=abc.ABCMeta):
+_reproducible: Optional[reproducible_mod.Context] = None
+
+
+def get_reproducible(reload: bool = False) -> reproducible_mod.Context:
+    global _reproducible
+    if _reproducible is not None and not reload:
+        return copy.deepcopy(_reproducible)
+
+    reproducible = reproducible_mod.Context()
+    reproducible.add_repo(
+        path=str(config.guess_project_dir()), allow_dirty=True, diff=True
+    )
+    reproducible.add_editable_repos()
+    reproducible.add_pip_packages()
+    reproducible.add_cpu_info()
+    _reproducible = reproducible
+    return copy.deepcopy(reproducible)
+
+
+class Node(Generic[ARGS, T], metaclass=abc.ABCMeta):
     """A Node is a self-contained unit of computation.
 
-    Args:
-        - key: A unique key that references this node
-        - storage: The B2 storage object
-        - args: The parsed arguments.
+    Attributes:
+        key: A unique key that references this node
+        storage: The B2 storage object
+        args: The parsed arguments.
     """
 
     @classmethod
-    @property
-    def args_class(cls) -> type[ARGS]:
-        """Returns a class instance of ARGS.
+    def get_args_class(cls) -> type[ARGS]:
+        """Returns the type of the ARGS generic.
 
         The default behavior is to infer the class from appending "Args" to the
         node's classname, e.g. for `FitOLS` it would return `FitOLSArgs`.
@@ -77,17 +75,35 @@ class Node(Generic[ARGS, T], io.Serializable, metaclass=abc.ABCMeta):
                 "You have two options:"
                 "  - either create a class {expected_name} that inhirents"
                 " from node.Args\n"
-                "  - or overwrite `args_class` in your node class "
+                "  - or overwrite `get_args_class` in your node class "
                 f"{cls.__qualname__}.\n"
             )
         return args_cls
 
-    def __init__(self, key: io.PATH_LIKE, storage: io.Storage, args: ARGS):
+    def __init__(
+        self,
+        key: io.PATH_LIKE,
+        storage: io.Storage,
+        args: ARGS,
+        reproducible: Optional[reproducible_mod.Context] = None,
+    ):
         self.key = Path(key)
         self.storage = storage
         self.args = args
+        if reproducible is None:
+            self.reproducible = self.init_reproducible()
+
+        self.reproducible.add_data(
+            "node.__module__", str(type(self).__module__)
+        )
+        self.reproducible.add_data(
+            "node.__qualname__", str(type(self).__qualname__)
+        )
         self._hooks_pre_run: dict[int, Callable[[Node[ARGS, T]], None]] = {}
         self._hooks_run: dict[int, Callable[[Node[ARGS, T], T], None]] = {}
+
+    def init_reproducible(self) -> reproducible_mod.Context:
+        return get_reproducible()
 
     def register_pre_run_hook(
         self,
@@ -141,10 +157,10 @@ class Node(Generic[ARGS, T], io.Serializable, metaclass=abc.ABCMeta):
             self.args.save(args_file)
             logger.info(f"Saving arguments to: {args_file}")
 
-            with (self.output_dir / "node.json").open("w") as f:
-                json.dump(self._node_info(), f)
-
             result = self._run()
+
+            self.reproducible.export_json(self.output_dir / "node.json")
+
             pickle_file = self.output_dir / "results.pickle"
             logger.info(f"Saving results to to: {pickle_file}")
             with open(pickle_file, "wb") as fb:
@@ -154,7 +170,10 @@ class Node(Generic[ARGS, T], io.Serializable, metaclass=abc.ABCMeta):
                 hook(self, result)
             return result
         finally:
-            self.storage.upload(self.key)
+            try:
+                self.reproducible.export_json(self.output_dir / "node.json")
+            finally:
+                self.storage.upload(self.key)
 
     @abc.abstractmethod
     def _run(self) -> T:
@@ -176,11 +195,25 @@ def create_node(
     node_cls: type[Node[ARGS, T]],
     config_file: io.PATH_LIKE,
     argv: Optional[list[str]] = None,
+    args_dict: Optional[dict[str, Any]] = None,
 ) -> Node[ARGS, T]:
+    """Creates a new node.
+
+    Args:
+        node_cls: the class of the node
+        config_file: path to the config file
+        argv: comandline arguments used to creating the node's args.
+        args_dict: if given, the arguments will be loaded from this dict.
+    """
     if argv is None:
         argv = sys.argv
 
-    args: ARGS = node_cls.args_class().parse_args(args=argv)  # type: ignore
+    args_cls: type[ARGS] = node_cls.get_args_class()
+
+    if args_dict:
+        args = args_cls.from_dict(args_dict)
+    else:
+        args = args_cls.parse_args(args=argv)
     storage = io.get_storage(config_file)
     key = node_cls.create_new_key()
     node = node_cls(key, storage, args)
@@ -268,6 +301,10 @@ def join(
     operator: Callable[[Node[ARGS1, T1], T1], ARGS2],
 ) -> type[Node[ARGS1, T2]]:
     class JoinNode(Node[ARGS1, T2]):
+        @classmethod
+        def get_args_class(cls) -> type[ARGS1]:
+            return first.get_args_class()
+
         def _run(self):
             node1 = first(self.key / node_name(first), self.storage, self.args)
 
