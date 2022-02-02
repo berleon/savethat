@@ -1,0 +1,36 @@
+name: Python package
+
+on: push
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        # comment out to enable mac:
+        # platform: [ubuntu-latest, macos-latest]
+        platform: [ubuntu-latest]
+        python-version: ['3.9', '3.10']
+    runs-on: ${{ matrix.platform }}
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v2
+      with:
+        python-version: ${{ matrix.python-version }}
+    - uses: actions/cache@v2
+      with:
+        path: ${{ env.pythonLocation }}
+        key: ${{ matrix.platform }}-cache-v2-${{ env.pythonLocation }}-${{ hashFiles('setup.py') }}-${{ hashFiles('requirements.txt') }}
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip wheel setuptools
+        pip install flake8 pytest
+        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+        # install module to make entrypoints available
+        pip install .
+    - name: Print Installed dependencies
+      run: |
+        pip freeze
+    - name: Test with pytest
+      run: |
+        ./run_test.sh

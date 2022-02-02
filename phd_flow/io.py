@@ -125,15 +125,17 @@ class B2Storage(Storage):
             file=str(config_file),
         )
         config = config_mod.read_config_file(Path(config_file))
-        b2_key_id = config.get("b2_key_id") or os.environ.get("B2_KEY_ID")
-        b2_key = config.get("b2_key", os.environ.get("B2_KEY"))
-        b2_bucket = config.get("b2_bucket") or os.environ.get("B2_BUCKET")
 
         if config.get("use_b2_simulation", False):
             fake_api = _SimulatedB2API()
             bucket = fake_api.bucket
             b2_bucket = fake_api.bucket_name
+            b2_key_id = fake_api.application_key_id
+            b2_key = fake_api.master_key
         else:
+            b2_key_id = config.get("b2_key_id") or os.environ.get("B2_KEY_ID")
+            b2_key = config.get("b2_key", os.environ.get("B2_KEY"))
+            b2_bucket = config.get("b2_bucket") or os.environ.get("B2_BUCKET")
             bucket = None
 
         assert isinstance(b2_key, str)

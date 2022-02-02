@@ -41,17 +41,18 @@ filterwarnings = [
 
 [[tool.mypy.overrides]]
 module = [
+    "anyconfig",
     "b2sdk",
     "b2sdk.*",
     "b2sdk.v2",
+    "coverage",
+    "cpuinfo",
     "matplotlib",
     "pandas",
+    "reproducible",
+    "setuptools",
     "sklearn",
     "sklearn.*",
-    "coverage",
-    "reproducible",
-    "cpuinfo",
-    "anyconfig",
     "typing_inspect",
 ]
 ignore_missing_imports = true
