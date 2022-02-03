@@ -7,7 +7,7 @@ from phd_flow import io
 from phd_flow import node as node_mod
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(frozen=True)
 class SampleIntArgs(node_mod.Args):
     max: int
 
@@ -22,7 +22,7 @@ class SampleInt(node_mod.Node[SampleIntArgs, int]):
         return number
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(frozen=True)
 class PrintArgs(node_mod.Args):
     key_to_print: str
     n_times: int = 10

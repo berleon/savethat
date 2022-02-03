@@ -41,6 +41,7 @@ def arg_parser_from_dataclass(cls: type) -> type[TapPatch]:
     dct["as_dict"] = TapPatch.as_dict
     dct["parse_args"] = TapPatch.parse_args
     dct["process_args"] = TapPatch.process_args
+    dct["__setattr__"] = TapPatch.__setattr__
 
     # This is madness:
     return type(
@@ -53,7 +54,7 @@ def arg_parser_from_dataclass(cls: type) -> type[TapPatch]:
 ARGS = TypeVar("ARGS", bound="Args")
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(frozen=True)
 class Args:
     @classmethod
     def _get_arg_parser(cls: type[ARGS]) -> TapPatch:

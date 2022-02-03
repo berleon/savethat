@@ -28,7 +28,7 @@ from sklearn.model_selection import train_test_split
 from phd_flow import logger, node
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(frozen=True)
 class FitOLSArgs(node.Args):
     dataset: str  # path to csv dataset
     target: str  # column name of the target

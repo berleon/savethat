@@ -5,7 +5,7 @@ import pytest
 import phd_flow
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(frozen=True)
 class MyArgs(phd_flow.Args):
     name: str
     n_times: int
