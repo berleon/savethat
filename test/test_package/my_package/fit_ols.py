@@ -38,11 +38,11 @@ class FitOLS(node.Node[FitOLSArgs, FitOLSResult]):
         X_train, X_test, y_train, y_test = train_test_split(X, y)
 
         # let's upload the dataset to the cloud
-        dataset_key = "datasets" / self.key / "datasets.pickle"
-        with self.storage.open(dataset_key, "wb") as f:
+        dataset_key = f"datasets/{self.key}"
+        with self.storage.open(f"{dataset_key}/datasets.pickle", "wb") as f:
             pickle.dump((X_train, X_test, y_train, y_test), f)
         # the actual uploading
-        self.storage.upload("datasets" / self.key)
+        self.storage.upload(dataset_key)
 
         ols = sklearn.linear_model.LinearRegression()
         ols.fit(X_train, y_train)

@@ -2,18 +2,20 @@ import subprocess
 from pathlib import Path
 
 
-def test_main(tmp_path: Path, config_file: Path):
+def test_main(tmp_path: Path, env_file: Path):
     commands = [
         (
-            "python -m test.test_package run "
+            f"python -m test.test_package.my_package run --env {env_file} "
             "--config test/test_package/run_config.json FitOLS"
         ),
         (
-            "python -m test.test_package run --pdb FitOLS "
-            "--dataset ./test/data/california_tiny.csv --target MedHouseVal"
+            f"python -m test.test_package.my_package run --env {env_file} "
+            "--pdb FitOLS --dataset ./test/data/california_tiny.csv"
+            " --target MedHouseVal"
         ),
     ]
     for command in commands:
+        print(f"Executing: {command}")
         p = subprocess.Popen(
             command.split(" "),
             stdout=subprocess.PIPE,

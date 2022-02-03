@@ -1,6 +1,7 @@
 """util functions."""
 from __future__ import annotations
 
+import copy
 import dataclasses
 import json
 from pathlib import Path
@@ -43,7 +44,7 @@ def arg_parser_from_dataclass(cls: type) -> type[TapPatch]:
 
     # This is madness:
     return type(
-        cls.__name__ + "ArgParser",
+        cls.__name__ + "PatchedParser",
         cls.__bases__ + (TapPatch,),
         dct,
     )
@@ -93,6 +94,13 @@ class Args:
         skip_unsettable: bool = False,
     ) -> ARGS:
         args_parser = cls._get_arg_parser()
+        state = copy.copy(state)
+
+        if "__module__" in state:
+            del state["__module__"]
+        if "__qualname__" in state:
+            del state["__qualname__"]
+
         args_parser.from_dict(state, skip_unsettable)
         kwargs = {}
         for argname in args_parser._annotations.keys():
@@ -104,9 +112,20 @@ class Args:
     def process_args(self) -> None:
         pass
 
-    def as_dict(self) -> dict[str, Any]:
-        return {argname: getattr(self, argname) for argname in self._get_keys()}
+    def as_dict(self, with_class_info: bool = False) -> dict[str, Any]:
+        state = {
+            argname: getattr(self, argname) for argname in self._get_keys()
+        }
+        if with_class_info:
+            state.update(
+                {
+                    "__module__": type(self).__module__,
+                    "__qualname__": type(self).__qualname__,
+                }
+            )
+        return state
 
     def save(self, path: Union[Path, str]) -> None:
+        state = self.as_dict(with_class_info=True)
         with open(path, "w") as f:
-            json.dump(self.as_dict(), f, indent=2)
+            json.dump(state, f, indent=2)

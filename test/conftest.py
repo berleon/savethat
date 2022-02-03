@@ -1,13 +1,15 @@
 from pathlib import Path
+from typing import Any
 
 import pytest
 
-from phd_flow import config, io
+import phd_flow
+from phd_flow import io
 
 
 @pytest.fixture
 def storage(tmp_path: Path) -> io.B2Storage:
-    fake_b2 = io._SimulatedB2API()
+    fake_b2 = io.SimulatedB2API()
     return io.B2Storage(
         local_path=tmp_path,
         remote_path=Path("test"),
@@ -19,5 +21,11 @@ def storage(tmp_path: Path) -> io.B2Storage:
 
 
 @pytest.fixture
-def config_file() -> Path:
-    return config.guess_project_dir() / "test" / "config.toml"
+def env_file() -> Path:
+    test_dir = Path(__file__).parent
+    return test_dir / "test_package" / "env" / "default.toml"
+
+
+@pytest.fixture
+def env(env_file: Path) -> dict[str, Any]:
+    return phd_flow.env.read_env_file(env_file)

@@ -8,12 +8,12 @@ import shutil
 import sys
 import time
 from pathlib import Path
-from typing import IO, Iterator, Optional, TypeVar, Union
+from typing import IO, Any, Iterator, Optional, TypeVar, Union
 
 import b2sdk.v2 as b2_api
 from loguru import logger
 
-from phd_flow import config as config_mod
+from phd_flow import env as env_mod
 
 T = TypeVar("T")
 REMOTE_FILE = TypeVar("REMOTE_FILE")
@@ -82,7 +82,7 @@ class Storage(metaclass=abc.ABCMeta):
         """
 
 
-class _SimulatedB2API:
+class SimulatedB2API:
     def __init__(self):
         self.account_info = b2_api.InMemoryAccountInfo()
         self.cache = b2_api.InMemoryCache()
@@ -105,6 +105,9 @@ class _SimulatedB2API:
         self.bucket = self.api.create_bucket(self.bucket_name, "allPrivate")
 
 
+STORAGE = TypeVar("STORAGE", bound="B2Storage")
+
+
 @dataclasses.dataclass
 class B2Storage(Storage):
     local_path: Path
@@ -118,32 +121,31 @@ class B2Storage(Storage):
         if self._bucket is None:
             self._bucket = self._connect_b2()
 
-    @staticmethod
-    def from_file(config_file: PATH_LIKE) -> B2Storage:
-        logger.info(
-            f"Loading config from file: {str(config_file)}",
-            file=str(config_file),
-        )
-        config = config_mod.read_config_file(Path(config_file))
+    @classmethod
+    def from_file(cls: type[STORAGE], env_file: PATH_LIKE) -> STORAGE:
+        env = env_mod.read_env_file(Path(env_file))
+        return cls.from_env(env)
 
-        if config.get("use_b2_simulation", False):
-            fake_api = _SimulatedB2API()
+    @classmethod
+    def from_env(cls: type[STORAGE], env: dict[str, Any]) -> STORAGE:
+        if env.get("use_b2_simulation", False):
+            fake_api = SimulatedB2API()
             bucket = fake_api.bucket
             b2_bucket = fake_api.bucket_name
             b2_key_id = fake_api.application_key_id
             b2_key = fake_api.master_key
         else:
-            b2_key_id = config.get("b2_key_id") or os.environ.get("B2_KEY_ID")
-            b2_key = config.get("b2_key", os.environ.get("B2_KEY"))
-            b2_bucket = config.get("b2_bucket") or os.environ.get("B2_BUCKET")
+            b2_key_id = env.get("b2_key_id") or os.environ.get("B2_KEY_ID")
+            b2_key = env.get("b2_key", os.environ.get("B2_KEY"))
+            b2_bucket = env.get("b2_bucket") or os.environ.get("B2_BUCKET")
             bucket = None
 
         assert isinstance(b2_key, str)
         assert isinstance(b2_key_id, str)
         assert isinstance(b2_bucket, str)
-        return B2Storage(
-            local_path=Path(config["local_path"]),
-            remote_path=Path(config["b2_prefix"]),
+        return cls(
+            local_path=Path(env["local_path"]),
+            remote_path=Path(env["b2_prefix"]),
             b2_bucket=b2_bucket,
             b2_key_id=b2_key_id,
             b2_key=b2_key,
@@ -282,8 +284,8 @@ class B2Storage(Storage):
 _global_storage: Optional[Storage] = None
 
 
-def get_storage(config_file: PATH_LIKE, reload: bool = False) -> Storage:
+def get_storage(env_file: PATH_LIKE, reload: bool = False) -> Storage:
     global _global_storage
     if _global_storage is None or reload:
-        return B2Storage.from_file(config_file)
+        return B2Storage.from_file(env_file)
     return _global_storage

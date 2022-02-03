@@ -3,6 +3,7 @@ from __future__ import annotations
 import abc
 import copy
 import dataclasses
+import json
 import pickle
 import random
 import sys
@@ -10,10 +11,10 @@ from pathlib import Path
 from typing import Any, Callable, Generic, Optional, TypeVar, Union
 
 import reproducible as reproducible_mod
+
+from phd_flow import env, io, utils
 from phd_flow.args import Args
 from phd_flow.log import logger
-
-from phd_flow import config, io, utils
 
 T = TypeVar("T")
 ARGS = TypeVar("ARGS", bound="Args")
@@ -38,7 +39,7 @@ def get_reproducible(reload: bool = False) -> reproducible_mod.Context:
 
     reproducible = reproducible_mod.Context()
     reproducible.add_repo(
-        path=str(config.guess_project_dir()), allow_dirty=True, diff=True
+        path=str(env.infer_project_dir()), allow_dirty=True, diff=True
     )
     reproducible.add_editable_repos()
     reproducible.add_pip_packages()
@@ -84,11 +85,13 @@ class Node(Generic[ARGS, T], metaclass=abc.ABCMeta):
         key: io.PATH_LIKE,
         storage: io.Storage,
         args: ARGS,
+        env: dict[str, Any],
         reproducible: Optional[reproducible_mod.Context] = None,
     ):
-        self.key = Path(key)
+        self.key: str = str(key)
         self.storage = storage
         self.args = args
+        self.env = env
         if reproducible is None:
             self.reproducible = self.init_reproducible()
 
@@ -100,6 +103,14 @@ class Node(Generic[ARGS, T], metaclass=abc.ABCMeta):
         )
         self._hooks_pre_run: dict[int, Callable[[Node[ARGS, T]], None]] = {}
         self._hooks_run: dict[int, Callable[[Node[ARGS, T], T], None]] = {}
+        self.setup()
+
+    @property
+    def key_as_path(self) -> Path:
+        return Path(self.key)
+
+    def setup(self):
+        pass
 
     def init_reproducible(self) -> reproducible_mod.Context:
         return get_reproducible()
@@ -158,8 +169,6 @@ class Node(Generic[ARGS, T], metaclass=abc.ABCMeta):
 
             result = self._run()
 
-            self.reproducible.export_json(self.output_dir / "node.json")
-
             pickle_file = self.output_dir / "results.pickle"
             logger.info(f"Saving results to to: {pickle_file}")
             with open(pickle_file, "wb") as fb:
@@ -170,7 +179,11 @@ class Node(Generic[ARGS, T], metaclass=abc.ABCMeta):
             return result
         finally:
             try:
-                self.reproducible.export_json(self.output_dir / "node.json")
+                with open(self.output_dir / "node.json", "w") as f:
+                    json.dump(self._node_info(), f, indent=2)
+                self.reproducible.export_json(
+                    self.output_dir / "reproducible.json"
+                )
             finally:
                 self.storage.upload(self.key)
 
@@ -192,30 +205,39 @@ class Node(Generic[ARGS, T], metaclass=abc.ABCMeta):
 
 def create_node(
     node_cls: type[Node[ARGS, T]],
-    config_file: io.PATH_LIKE,
-    argv: Optional[list[str]] = None,
-    args_dict: Optional[dict[str, Any]] = None,
+    args: Union[None, list[str], tuple[str], dict[str, Any], ARGS] = None,
+    env_file: Optional[io.PATH_LIKE] = None,
+    key_prefix: Optional[str] = None,
 ) -> Node[ARGS, T]:
     """Creates a new node.
 
     Args:
         node_cls: the class of the node
-        config_file: path to the config file
+        env_file: path to the env file
         argv: comandline arguments used to creating the node's args.
         args_dict: if given, the arguments will be loaded from this dict.
     """
-    if argv is None:
-        argv = sys.argv
 
     args_cls: type[ARGS] = node_cls.get_args_class()
 
-    if args_dict:
-        args = args_cls.from_dict(args_dict)
-    else:
-        args = args_cls.parse_args(args=argv)
-    storage = io.get_storage(config_file)
+    if isinstance(args, args_cls):
+        parsed_args = args
+    elif isinstance(args, dict):
+        parsed_args = args_cls.from_dict(args)
+    elif isinstance(args, (list, tuple)):
+        parsed_args = args_cls.parse_args(args=args)
+    else:  # args is None:
+        parsed_args = args_cls.parse_args(args=sys.argv)
+
+    if env_file is None:
+        env_file = env.find_enviroment_file()
+
+    env_dict = env.read_env_file(env_file)
+    storage = io.B2Storage.from_env(env_dict)
     key = node_cls.create_new_key()
-    node = node_cls(key, storage, args)
+    if key_prefix:
+        key = key_prefix + key
+    node = node_cls(key, storage, parsed_args, env_dict)
     return node
 
 
@@ -245,11 +267,21 @@ def join(
             return first.get_args_class()
 
         def _run(self):
-            node1 = first(self.key / node_name(first), self.storage, self.args)
+            node1 = first(
+                self.key_as_path / node_name(first),
+                self.storage,
+                self.args,
+                self.env,
+            )
 
             res1 = node1.run()
             args2 = operator(node1, res1)
-            node2 = second(self.key / node_name(second), self.storage, args2)
+            node2 = second(
+                self.key_as_path / node_name(second),
+                self.storage,
+                args2,
+                self.env,
+            )
             return node2.run()
 
     return JoinNode
