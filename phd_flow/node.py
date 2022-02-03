@@ -138,7 +138,7 @@ class Node(Generic[ARGS, T], metaclass=abc.ABCMeta):
 
         As default, it will return the classname + the current time (isoformat).
         """
-        return cls.__qualname__ + "_" + utils.isoformat_now()
+        return cls.__qualname__ + "_" + utils.isoformat_now().replace(":", "-")
 
     def _node_info(self) -> dict[str, str]:
         return {
