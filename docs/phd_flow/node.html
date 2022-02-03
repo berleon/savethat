@@ -52,6 +52,12 @@
                                 <a class="function" href="#Node.get_args_class">get_args_class</a>
                         </li>
                         <li>
+                                <a class="variable" href="#Node.key_as_path">key_as_path</a>
+                        </li>
+                        <li>
+                                <a class="function" href="#Node.setup">setup</a>
+                        </li>
+                        <li>
                                 <a class="function" href="#Node.init_reproducible">init_reproducible</a>
                         </li>
                         <li>
@@ -108,6 +114,7 @@
 <span class="kn">import</span> <span class="nn">abc</span>
 <span class="kn">import</span> <span class="nn">copy</span>
 <span class="kn">import</span> <span class="nn">dataclasses</span>
+<span class="kn">import</span> <span class="nn">json</span>
 <span class="kn">import</span> <span class="nn">pickle</span>
 <span class="kn">import</span> <span class="nn">random</span>
 <span class="kn">import</span> <span class="nn">sys</span>
@@ -115,10 +122,10 @@
 <span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Generic</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">TypeVar</span><span class="p">,</span> <span class="n">Union</span>
 
 <span class="kn">import</span> <span class="nn">reproducible</span> <span class="k">as</span> <span class="nn">reproducible_mod</span>
+
+<span class="kn">from</span> <span class="nn">phd_flow</span> <span class="kn">import</span> <span class="n">env</span><span class="p">,</span> <span class="n">io</span><span class="p">,</span> <span class="n">utils</span>
 <span class="kn">from</span> <span class="nn">phd_flow.args</span> <span class="kn">import</span> <span class="n">Args</span>
 <span class="kn">from</span> <span class="nn">phd_flow.log</span> <span class="kn">import</span> <span class="n">logger</span>
-
-<span class="kn">from</span> <span class="nn">phd_flow</span> <span class="kn">import</span> <span class="n">config</span><span class="p">,</span> <span class="n">io</span><span class="p">,</span> <span class="n">utils</span>
 
 <span class="n">T</span> <span class="o">=</span> <span class="n">TypeVar</span><span class="p">(</span><span class="s2">&quot;T&quot;</span><span class="p">)</span>
 <span class="n">ARGS</span> <span class="o">=</span> <span class="n">TypeVar</span><span class="p">(</span><span class="s2">&quot;ARGS&quot;</span><span class="p">,</span> <span class="n">bound</span><span class="o">=</span><span class="s2">&quot;Args&quot;</span><span class="p">)</span>
@@ -143,7 +150,7 @@
 
     <span class="n">reproducible</span> <span class="o">=</span> <span class="n">reproducible_mod</span><span class="o">.</span><span class="n">Context</span><span class="p">()</span>
     <span class="n">reproducible</span><span class="o">.</span><span class="n">add_repo</span><span class="p">(</span>
-        <span class="n">path</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">guess_project_dir</span><span class="p">()),</span> <span class="n">allow_dirty</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">diff</span><span class="o">=</span><span class="kc">True</span>
+        <span class="n">path</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">env</span><span class="o">.</span><span class="n">infer_project_dir</span><span class="p">()),</span> <span class="n">allow_dirty</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">diff</span><span class="o">=</span><span class="kc">True</span>
     <span class="p">)</span>
     <span class="n">reproducible</span><span class="o">.</span><span class="n">add_editable_repos</span><span class="p">()</span>
     <span class="n">reproducible</span><span class="o">.</span><span class="n">add_pip_packages</span><span class="p">()</span>
@@ -189,11 +196,13 @@
         <span class="n">key</span><span class="p">:</span> <span class="n">io</span><span class="o">.</span><span class="n">PATH_LIKE</span><span class="p">,</span>
         <span class="n">storage</span><span class="p">:</span> <span class="n">io</span><span class="o">.</span><span class="n">Storage</span><span class="p">,</span>
         <span class="n">args</span><span class="p">:</span> <span class="n">ARGS</span><span class="p">,</span>
+        <span class="n">env</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
         <span class="n">reproducible</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">reproducible_mod</span><span class="o">.</span><span class="n">Context</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">):</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">key</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">key</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">storage</span> <span class="o">=</span> <span class="n">storage</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">args</span> <span class="o">=</span> <span class="n">args</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">env</span> <span class="o">=</span> <span class="n">env</span>
         <span class="k">if</span> <span class="n">reproducible</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">reproducible</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">init_reproducible</span><span class="p">()</span>
 
@@ -205,6 +214,14 @@
         <span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_hooks_pre_run</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">Node</span><span class="p">[</span><span class="n">ARGS</span><span class="p">,</span> <span class="n">T</span><span class="p">]],</span> <span class="kc">None</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_hooks_run</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">Node</span><span class="p">[</span><span class="n">ARGS</span><span class="p">,</span> <span class="n">T</span><span class="p">],</span> <span class="n">T</span><span class="p">],</span> <span class="kc">None</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">setup</span><span class="p">()</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">key_as_path</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Path</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">Path</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">key</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">setup</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">pass</span>
 
     <span class="k">def</span> <span class="nf">init_reproducible</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">reproducible_mod</span><span class="o">.</span><span class="n">Context</span><span class="p">:</span>
         <span class="k">return</span> <span class="n">get_reproducible</span><span class="p">()</span>
@@ -263,8 +280,6 @@
 
             <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_run</span><span class="p">()</span>
 
-            <span class="bp">self</span><span class="o">.</span><span class="n">reproducible</span><span class="o">.</span><span class="n">export_json</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">output_dir</span> <span class="o">/</span> <span class="s2">&quot;node.json&quot;</span><span class="p">)</span>
-
             <span class="n">pickle_file</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_dir</span> <span class="o">/</span> <span class="s2">&quot;results.pickle&quot;</span>
             <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Saving results to to: </span><span class="si">{</span><span class="n">pickle_file</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
             <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">pickle_file</span><span class="p">,</span> <span class="s2">&quot;wb&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">fb</span><span class="p">:</span>
@@ -275,7 +290,11 @@
             <span class="k">return</span> <span class="n">result</span>
         <span class="k">finally</span><span class="p">:</span>
             <span class="k">try</span><span class="p">:</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">reproducible</span><span class="o">.</span><span class="n">export_json</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">output_dir</span> <span class="o">/</span> <span class="s2">&quot;node.json&quot;</span><span class="p">)</span>
+                <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">output_dir</span> <span class="o">/</span> <span class="s2">&quot;node.json&quot;</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+                    <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_node_info</span><span class="p">(),</span> <span class="n">f</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">reproducible</span><span class="o">.</span><span class="n">export_json</span><span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">output_dir</span> <span class="o">/</span> <span class="s2">&quot;reproducible.json&quot;</span>
+                <span class="p">)</span>
             <span class="k">finally</span><span class="p">:</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">storage</span><span class="o">.</span><span class="n">upload</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">key</span><span class="p">)</span>
 
@@ -297,30 +316,39 @@
 
 <span class="k">def</span> <span class="nf">create_node</span><span class="p">(</span>
     <span class="n">node_cls</span><span class="p">:</span> <span class="nb">type</span><span class="p">[</span><span class="n">Node</span><span class="p">[</span><span class="n">ARGS</span><span class="p">,</span> <span class="n">T</span><span class="p">]],</span>
-    <span class="n">config_file</span><span class="p">:</span> <span class="n">io</span><span class="o">.</span><span class="n">PATH_LIKE</span><span class="p">,</span>
-    <span class="n">argv</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-    <span class="n">args_dict</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">args</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="n">ARGS</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">env_file</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">io</span><span class="o">.</span><span class="n">PATH_LIKE</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">key_prefix</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Node</span><span class="p">[</span><span class="n">ARGS</span><span class="p">,</span> <span class="n">T</span><span class="p">]:</span>
     <span class="sd">&quot;&quot;&quot;Creates a new node.</span>
 
 <span class="sd">    Args:</span>
 <span class="sd">        node_cls: the class of the node</span>
-<span class="sd">        config_file: path to the config file</span>
+<span class="sd">        env_file: path to the env file</span>
 <span class="sd">        argv: comandline arguments used to creating the node&#39;s args.</span>
 <span class="sd">        args_dict: if given, the arguments will be loaded from this dict.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">if</span> <span class="n">argv</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">argv</span> <span class="o">=</span> <span class="n">sys</span><span class="o">.</span><span class="n">argv</span>
 
     <span class="n">args_cls</span><span class="p">:</span> <span class="nb">type</span><span class="p">[</span><span class="n">ARGS</span><span class="p">]</span> <span class="o">=</span> <span class="n">node_cls</span><span class="o">.</span><span class="n">get_args_class</span><span class="p">()</span>
 
-    <span class="k">if</span> <span class="n">args_dict</span><span class="p">:</span>
-        <span class="n">args</span> <span class="o">=</span> <span class="n">args_cls</span><span class="o">.</span><span class="n">from_dict</span><span class="p">(</span><span class="n">args_dict</span><span class="p">)</span>
-    <span class="k">else</span><span class="p">:</span>
-        <span class="n">args</span> <span class="o">=</span> <span class="n">args_cls</span><span class="o">.</span><span class="n">parse_args</span><span class="p">(</span><span class="n">args</span><span class="o">=</span><span class="n">argv</span><span class="p">)</span>
-    <span class="n">storage</span> <span class="o">=</span> <span class="n">io</span><span class="o">.</span><span class="n">get_storage</span><span class="p">(</span><span class="n">config_file</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">args</span><span class="p">,</span> <span class="n">args_cls</span><span class="p">):</span>
+        <span class="n">parsed_args</span> <span class="o">=</span> <span class="n">args</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">args</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+        <span class="n">parsed_args</span> <span class="o">=</span> <span class="n">args_cls</span><span class="o">.</span><span class="n">from_dict</span><span class="p">(</span><span class="n">args</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">args</span><span class="p">,</span> <span class="p">(</span><span class="nb">list</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">)):</span>
+        <span class="n">parsed_args</span> <span class="o">=</span> <span class="n">args_cls</span><span class="o">.</span><span class="n">parse_args</span><span class="p">(</span><span class="n">args</span><span class="o">=</span><span class="n">args</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>  <span class="c1"># args is None:</span>
+        <span class="n">parsed_args</span> <span class="o">=</span> <span class="n">args_cls</span><span class="o">.</span><span class="n">parse_args</span><span class="p">(</span><span class="n">args</span><span class="o">=</span><span class="n">sys</span><span class="o">.</span><span class="n">argv</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">env_file</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">env_file</span> <span class="o">=</span> <span class="n">env</span><span class="o">.</span><span class="n">find_enviroment_file</span><span class="p">()</span>
+
+    <span class="n">env_dict</span> <span class="o">=</span> <span class="n">env</span><span class="o">.</span><span class="n">read_env_file</span><span class="p">(</span><span class="n">env_file</span><span class="p">)</span>
+    <span class="n">storage</span> <span class="o">=</span> <span class="n">io</span><span class="o">.</span><span class="n">B2Storage</span><span class="o">.</span><span class="n">from_env</span><span class="p">(</span><span class="n">env_dict</span><span class="p">)</span>
     <span class="n">key</span> <span class="o">=</span> <span class="n">node_cls</span><span class="o">.</span><span class="n">create_new_key</span><span class="p">()</span>
-    <span class="n">node</span> <span class="o">=</span> <span class="n">node_cls</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">storage</span><span class="p">,</span> <span class="n">args</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">key_prefix</span><span class="p">:</span>
+        <span class="n">key</span> <span class="o">=</span> <span class="n">key_prefix</span> <span class="o">+</span> <span class="n">key</span>
+    <span class="n">node</span> <span class="o">=</span> <span class="n">node_cls</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">storage</span><span class="p">,</span> <span class="n">parsed_args</span><span class="p">,</span> <span class="n">env_dict</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">node</span>
 
 
@@ -350,11 +378,21 @@
             <span class="k">return</span> <span class="n">first</span><span class="o">.</span><span class="n">get_args_class</span><span class="p">()</span>
 
         <span class="k">def</span> <span class="nf">_run</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-            <span class="n">node1</span> <span class="o">=</span> <span class="n">first</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">key</span> <span class="o">/</span> <span class="n">node_name</span><span class="p">(</span><span class="n">first</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">storage</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">args</span><span class="p">)</span>
+            <span class="n">node1</span> <span class="o">=</span> <span class="n">first</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">key_as_path</span> <span class="o">/</span> <span class="n">node_name</span><span class="p">(</span><span class="n">first</span><span class="p">),</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">storage</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">args</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">env</span><span class="p">,</span>
+            <span class="p">)</span>
 
             <span class="n">res1</span> <span class="o">=</span> <span class="n">node1</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
             <span class="n">args2</span> <span class="o">=</span> <span class="n">operator</span><span class="p">(</span><span class="n">node1</span><span class="p">,</span> <span class="n">res1</span><span class="p">)</span>
-            <span class="n">node2</span> <span class="o">=</span> <span class="n">second</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">key</span> <span class="o">/</span> <span class="n">node_name</span><span class="p">(</span><span class="n">second</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">storage</span><span class="p">,</span> <span class="n">args2</span><span class="p">)</span>
+            <span class="n">node2</span> <span class="o">=</span> <span class="n">second</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">key_as_path</span> <span class="o">/</span> <span class="n">node_name</span><span class="p">(</span><span class="n">second</span><span class="p">),</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">storage</span><span class="p">,</span>
+                <span class="n">args2</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">env</span><span class="p">,</span>
+            <span class="p">)</span>
             <span class="k">return</span> <span class="n">node2</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
 
     <span class="k">return</span> <span class="n">JoinNode</span>
@@ -438,7 +476,7 @@
 
     <span class="n">reproducible</span> <span class="o">=</span> <span class="n">reproducible_mod</span><span class="o">.</span><span class="n">Context</span><span class="p">()</span>
     <span class="n">reproducible</span><span class="o">.</span><span class="n">add_repo</span><span class="p">(</span>
-        <span class="n">path</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">guess_project_dir</span><span class="p">()),</span> <span class="n">allow_dirty</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">diff</span><span class="o">=</span><span class="kc">True</span>
+        <span class="n">path</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">env</span><span class="o">.</span><span class="n">infer_project_dir</span><span class="p">()),</span> <span class="n">allow_dirty</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">diff</span><span class="o">=</span><span class="kc">True</span>
     <span class="p">)</span>
     <span class="n">reproducible</span><span class="o">.</span><span class="n">add_editable_repos</span><span class="p">()</span>
     <span class="n">reproducible</span><span class="o">.</span><span class="n">add_pip_packages</span><span class="p">()</span>
@@ -500,11 +538,13 @@
         <span class="n">key</span><span class="p">:</span> <span class="n">io</span><span class="o">.</span><span class="n">PATH_LIKE</span><span class="p">,</span>
         <span class="n">storage</span><span class="p">:</span> <span class="n">io</span><span class="o">.</span><span class="n">Storage</span><span class="p">,</span>
         <span class="n">args</span><span class="p">:</span> <span class="n">ARGS</span><span class="p">,</span>
+        <span class="n">env</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
         <span class="n">reproducible</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">reproducible_mod</span><span class="o">.</span><span class="n">Context</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">):</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">key</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">key</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">storage</span> <span class="o">=</span> <span class="n">storage</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">args</span> <span class="o">=</span> <span class="n">args</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">env</span> <span class="o">=</span> <span class="n">env</span>
         <span class="k">if</span> <span class="n">reproducible</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">reproducible</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">init_reproducible</span><span class="p">()</span>
 
@@ -516,6 +556,14 @@
         <span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_hooks_pre_run</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">Node</span><span class="p">[</span><span class="n">ARGS</span><span class="p">,</span> <span class="n">T</span><span class="p">]],</span> <span class="kc">None</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_hooks_run</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">Node</span><span class="p">[</span><span class="n">ARGS</span><span class="p">,</span> <span class="n">T</span><span class="p">],</span> <span class="n">T</span><span class="p">],</span> <span class="kc">None</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">setup</span><span class="p">()</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">key_as_path</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Path</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">Path</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">key</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">setup</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">pass</span>
 
     <span class="k">def</span> <span class="nf">init_reproducible</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">reproducible_mod</span><span class="o">.</span><span class="n">Context</span><span class="p">:</span>
         <span class="k">return</span> <span class="n">get_reproducible</span><span class="p">()</span>
@@ -574,8 +622,6 @@
 
             <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_run</span><span class="p">()</span>
 
-            <span class="bp">self</span><span class="o">.</span><span class="n">reproducible</span><span class="o">.</span><span class="n">export_json</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">output_dir</span> <span class="o">/</span> <span class="s2">&quot;node.json&quot;</span><span class="p">)</span>
-
             <span class="n">pickle_file</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_dir</span> <span class="o">/</span> <span class="s2">&quot;results.pickle&quot;</span>
             <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Saving results to to: </span><span class="si">{</span><span class="n">pickle_file</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
             <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">pickle_file</span><span class="p">,</span> <span class="s2">&quot;wb&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">fb</span><span class="p">:</span>
@@ -586,7 +632,11 @@
             <span class="k">return</span> <span class="n">result</span>
         <span class="k">finally</span><span class="p">:</span>
             <span class="k">try</span><span class="p">:</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">reproducible</span><span class="o">.</span><span class="n">export_json</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">output_dir</span> <span class="o">/</span> <span class="s2">&quot;node.json&quot;</span><span class="p">)</span>
+                <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">output_dir</span> <span class="o">/</span> <span class="s2">&quot;node.json&quot;</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+                    <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_node_info</span><span class="p">(),</span> <span class="n">f</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">reproducible</span><span class="o">.</span><span class="n">export_json</span><span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">output_dir</span> <span class="o">/</span> <span class="s2">&quot;reproducible.json&quot;</span>
+                <span class="p">)</span>
             <span class="k">finally</span><span class="p">:</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">storage</span><span class="o">.</span><span class="n">upload</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">key</span><span class="p">)</span>
 
@@ -665,6 +715,34 @@ node's classname, e.g. for <code>FitOLS</code> it would return <code>FitOLSArgs<
 <p>If you want to use another classname, you have to overwrite this method.</p>
 </div>
 
+
+                            </div>
+                            <div id="Node.key_as_path" class="classattr">
+                                            <div class="attr variable"><a class="headerlink" href="#Node.key_as_path">#&nbsp;&nbsp</a>
+
+        <span class="name">key_as_path</span><span class="annotation">: pathlib.Path</span>
+    </div>
+
+    
+
+                            </div>
+                            <div id="Node.setup" class="classattr">
+                                        <div class="attr function"><a class="headerlink" href="#Node.setup">#&nbsp;&nbsp</a>
+
+        
+            <span class="def">def</span>
+            <span class="name">setup</span><span class="signature">(self)</span>:
+    </div>
+
+                <details>
+            <summary>View Source</summary>
+            <div class="codehilite"><pre><span></span>    <span class="k">def</span> <span class="nf">setup</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">pass</span>
+</pre></div>
+
+        </details>
+
+    
 
                             </div>
                             <div id="Node.init_reproducible" class="classattr">
@@ -807,8 +885,6 @@ node's classname, e.g. for <code>FitOLS</code> it would return <code>FitOLSArgs<
 
             <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_run</span><span class="p">()</span>
 
-            <span class="bp">self</span><span class="o">.</span><span class="n">reproducible</span><span class="o">.</span><span class="n">export_json</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">output_dir</span> <span class="o">/</span> <span class="s2">&quot;node.json&quot;</span><span class="p">)</span>
-
             <span class="n">pickle_file</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_dir</span> <span class="o">/</span> <span class="s2">&quot;results.pickle&quot;</span>
             <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Saving results to to: </span><span class="si">{</span><span class="n">pickle_file</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
             <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">pickle_file</span><span class="p">,</span> <span class="s2">&quot;wb&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">fb</span><span class="p">:</span>
@@ -819,7 +895,11 @@ node's classname, e.g. for <code>FitOLS</code> it would return <code>FitOLSArgs<
             <span class="k">return</span> <span class="n">result</span>
         <span class="k">finally</span><span class="p">:</span>
             <span class="k">try</span><span class="p">:</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">reproducible</span><span class="o">.</span><span class="n">export_json</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">output_dir</span> <span class="o">/</span> <span class="s2">&quot;node.json&quot;</span><span class="p">)</span>
+                <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">output_dir</span> <span class="o">/</span> <span class="s2">&quot;node.json&quot;</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+                    <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_node_info</span><span class="p">(),</span> <span class="n">f</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">reproducible</span><span class="o">.</span><span class="n">export_json</span><span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">output_dir</span> <span class="o">/</span> <span class="s2">&quot;reproducible.json&quot;</span>
+                <span class="p">)</span>
             <span class="k">finally</span><span class="p">:</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">storage</span><span class="o">.</span><span class="n">upload</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">key</span><span class="p">)</span>
 </pre></div>
@@ -864,9 +944,9 @@ To execute nodes a second time, create a new one with a new key.</p>
             <span class="def">def</span>
             <span class="name">create_node</span><span class="signature">(
     node_cls: type[<a href="#Node">phd_flow.node.Node</a>[~ARGS, ~T]],
-    config_file: Union[str, pathlib.Path],
-    argv: Optional[list[str]] = None,
-    args_dict: Optional[dict[str, Any]] = None
+    args: Union[NoneType, list[str], tuple[str], dict[str, Any], ~ARGS] = None,
+    env_file: Union[str, pathlib.Path, NoneType] = None,
+    key_prefix: Optional[str] = None
 ) -&gt; <a href="#Node">phd_flow.node.Node</a>[~ARGS, ~T]</span>:
     </div>
 
@@ -874,30 +954,39 @@ To execute nodes a second time, create a new one with a new key.</p>
             <summary>View Source</summary>
             <div class="codehilite"><pre><span></span><span class="k">def</span> <span class="nf">create_node</span><span class="p">(</span>
     <span class="n">node_cls</span><span class="p">:</span> <span class="nb">type</span><span class="p">[</span><span class="n">Node</span><span class="p">[</span><span class="n">ARGS</span><span class="p">,</span> <span class="n">T</span><span class="p">]],</span>
-    <span class="n">config_file</span><span class="p">:</span> <span class="n">io</span><span class="o">.</span><span class="n">PATH_LIKE</span><span class="p">,</span>
-    <span class="n">argv</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-    <span class="n">args_dict</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">args</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="n">ARGS</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">env_file</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">io</span><span class="o">.</span><span class="n">PATH_LIKE</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">key_prefix</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Node</span><span class="p">[</span><span class="n">ARGS</span><span class="p">,</span> <span class="n">T</span><span class="p">]:</span>
     <span class="sd">&quot;&quot;&quot;Creates a new node.</span>
 
 <span class="sd">    Args:</span>
 <span class="sd">        node_cls: the class of the node</span>
-<span class="sd">        config_file: path to the config file</span>
+<span class="sd">        env_file: path to the env file</span>
 <span class="sd">        argv: comandline arguments used to creating the node&#39;s args.</span>
 <span class="sd">        args_dict: if given, the arguments will be loaded from this dict.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">if</span> <span class="n">argv</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">argv</span> <span class="o">=</span> <span class="n">sys</span><span class="o">.</span><span class="n">argv</span>
 
     <span class="n">args_cls</span><span class="p">:</span> <span class="nb">type</span><span class="p">[</span><span class="n">ARGS</span><span class="p">]</span> <span class="o">=</span> <span class="n">node_cls</span><span class="o">.</span><span class="n">get_args_class</span><span class="p">()</span>
 
-    <span class="k">if</span> <span class="n">args_dict</span><span class="p">:</span>
-        <span class="n">args</span> <span class="o">=</span> <span class="n">args_cls</span><span class="o">.</span><span class="n">from_dict</span><span class="p">(</span><span class="n">args_dict</span><span class="p">)</span>
-    <span class="k">else</span><span class="p">:</span>
-        <span class="n">args</span> <span class="o">=</span> <span class="n">args_cls</span><span class="o">.</span><span class="n">parse_args</span><span class="p">(</span><span class="n">args</span><span class="o">=</span><span class="n">argv</span><span class="p">)</span>
-    <span class="n">storage</span> <span class="o">=</span> <span class="n">io</span><span class="o">.</span><span class="n">get_storage</span><span class="p">(</span><span class="n">config_file</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">args</span><span class="p">,</span> <span class="n">args_cls</span><span class="p">):</span>
+        <span class="n">parsed_args</span> <span class="o">=</span> <span class="n">args</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">args</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+        <span class="n">parsed_args</span> <span class="o">=</span> <span class="n">args_cls</span><span class="o">.</span><span class="n">from_dict</span><span class="p">(</span><span class="n">args</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">args</span><span class="p">,</span> <span class="p">(</span><span class="nb">list</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">)):</span>
+        <span class="n">parsed_args</span> <span class="o">=</span> <span class="n">args_cls</span><span class="o">.</span><span class="n">parse_args</span><span class="p">(</span><span class="n">args</span><span class="o">=</span><span class="n">args</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>  <span class="c1"># args is None:</span>
+        <span class="n">parsed_args</span> <span class="o">=</span> <span class="n">args_cls</span><span class="o">.</span><span class="n">parse_args</span><span class="p">(</span><span class="n">args</span><span class="o">=</span><span class="n">sys</span><span class="o">.</span><span class="n">argv</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">env_file</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">env_file</span> <span class="o">=</span> <span class="n">env</span><span class="o">.</span><span class="n">find_enviroment_file</span><span class="p">()</span>
+
+    <span class="n">env_dict</span> <span class="o">=</span> <span class="n">env</span><span class="o">.</span><span class="n">read_env_file</span><span class="p">(</span><span class="n">env_file</span><span class="p">)</span>
+    <span class="n">storage</span> <span class="o">=</span> <span class="n">io</span><span class="o">.</span><span class="n">B2Storage</span><span class="o">.</span><span class="n">from_env</span><span class="p">(</span><span class="n">env_dict</span><span class="p">)</span>
     <span class="n">key</span> <span class="o">=</span> <span class="n">node_cls</span><span class="o">.</span><span class="n">create_new_key</span><span class="p">()</span>
-    <span class="n">node</span> <span class="o">=</span> <span class="n">node_cls</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">storage</span><span class="p">,</span> <span class="n">args</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">key_prefix</span><span class="p">:</span>
+        <span class="n">key</span> <span class="o">=</span> <span class="n">key_prefix</span> <span class="o">+</span> <span class="n">key</span>
+    <span class="n">node</span> <span class="o">=</span> <span class="n">node_cls</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">storage</span><span class="p">,</span> <span class="n">parsed_args</span><span class="p">,</span> <span class="n">env_dict</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">node</span>
 </pre></div>
 
@@ -909,7 +998,7 @@ To execute nodes a second time, create a new one with a new key.</p>
 
 <ul>
 <li><strong>node_cls:</strong>  the class of the node</li>
-<li><strong>config_file:</strong>  path to the config file</li>
+<li><strong>env_file:</strong>  path to the env file</li>
 <li><strong>argv:</strong>  comandline arguments used to creating the node's args.</li>
 <li><strong>args_dict:</strong>  if given, the arguments will be loaded from this dict.</li>
 </ul>
@@ -966,11 +1055,21 @@ To execute nodes a second time, create a new one with a new key.</p>
             <span class="k">return</span> <span class="n">first</span><span class="o">.</span><span class="n">get_args_class</span><span class="p">()</span>
 
         <span class="k">def</span> <span class="nf">_run</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-            <span class="n">node1</span> <span class="o">=</span> <span class="n">first</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">key</span> <span class="o">/</span> <span class="n">node_name</span><span class="p">(</span><span class="n">first</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">storage</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">args</span><span class="p">)</span>
+            <span class="n">node1</span> <span class="o">=</span> <span class="n">first</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">key_as_path</span> <span class="o">/</span> <span class="n">node_name</span><span class="p">(</span><span class="n">first</span><span class="p">),</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">storage</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">args</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">env</span><span class="p">,</span>
+            <span class="p">)</span>
 
             <span class="n">res1</span> <span class="o">=</span> <span class="n">node1</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
             <span class="n">args2</span> <span class="o">=</span> <span class="n">operator</span><span class="p">(</span><span class="n">node1</span><span class="p">,</span> <span class="n">res1</span><span class="p">)</span>
-            <span class="n">node2</span> <span class="o">=</span> <span class="n">second</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">key</span> <span class="o">/</span> <span class="n">node_name</span><span class="p">(</span><span class="n">second</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">storage</span><span class="p">,</span> <span class="n">args2</span><span class="p">)</span>
+            <span class="n">node2</span> <span class="o">=</span> <span class="n">second</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">key_as_path</span> <span class="o">/</span> <span class="n">node_name</span><span class="p">(</span><span class="n">second</span><span class="p">),</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">storage</span><span class="p">,</span>
+                <span class="n">args2</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">env</span><span class="p">,</span>
+            <span class="p">)</span>
             <span class="k">return</span> <span class="n">node2</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
 
     <span class="k">return</span> <span class="n">JoinNode</span>

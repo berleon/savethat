@@ -58,6 +58,15 @@
 
             </li>
             <li>
+                    <a class="class" href="#SimulatedB2API">SimulatedB2API</a>
+                            <ul class="memberlist">
+                        <li>
+                                <a class="function" href="#SimulatedB2API.__init__">SimulatedB2API</a>
+                        </li>
+                </ul>
+
+            </li>
+            <li>
                     <a class="class" href="#B2Storage">B2Storage</a>
                             <ul class="memberlist">
                         <li>
@@ -65,6 +74,9 @@
                         </li>
                         <li>
                                 <a class="function" href="#B2Storage.from_file">from_file</a>
+                        </li>
+                        <li>
+                                <a class="function" href="#B2Storage.from_env">from_env</a>
                         </li>
                         <li>
                                 <a class="variable" href="#B2Storage.storage_path">storage_path</a>
@@ -140,12 +152,12 @@
 <span class="kn">import</span> <span class="nn">sys</span>
 <span class="kn">import</span> <span class="nn">time</span>
 <span class="kn">from</span> <span class="nn">pathlib</span> <span class="kn">import</span> <span class="n">Path</span>
-<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">IO</span><span class="p">,</span> <span class="n">Iterator</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">TypeVar</span><span class="p">,</span> <span class="n">Union</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">IO</span><span class="p">,</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Iterator</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">TypeVar</span><span class="p">,</span> <span class="n">Union</span>
 
 <span class="kn">import</span> <span class="nn">b2sdk.v2</span> <span class="k">as</span> <span class="nn">b2_api</span>
 <span class="kn">from</span> <span class="nn">loguru</span> <span class="kn">import</span> <span class="n">logger</span>
 
-<span class="kn">from</span> <span class="nn">phd_flow</span> <span class="kn">import</span> <span class="n">config</span> <span class="k">as</span> <span class="n">config_mod</span>
+<span class="kn">from</span> <span class="nn">phd_flow</span> <span class="kn">import</span> <span class="n">env</span> <span class="k">as</span> <span class="n">env_mod</span>
 
 <span class="n">T</span> <span class="o">=</span> <span class="n">TypeVar</span><span class="p">(</span><span class="s2">&quot;T&quot;</span><span class="p">)</span>
 <span class="n">REMOTE_FILE</span> <span class="o">=</span> <span class="n">TypeVar</span><span class="p">(</span><span class="s2">&quot;REMOTE_FILE&quot;</span><span class="p">)</span>
@@ -214,7 +226,7 @@
 <span class="sd">        &quot;&quot;&quot;</span>
 
 
-<span class="k">class</span> <span class="nc">_SimulatedB2API</span><span class="p">:</span>
+<span class="k">class</span> <span class="nc">SimulatedB2API</span><span class="p">:</span>
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">account_info</span> <span class="o">=</span> <span class="n">b2_api</span><span class="o">.</span><span class="n">InMemoryAccountInfo</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">cache</span> <span class="o">=</span> <span class="n">b2_api</span><span class="o">.</span><span class="n">InMemoryCache</span><span class="p">()</span>
@@ -237,6 +249,9 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">bucket</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">api</span><span class="o">.</span><span class="n">create_bucket</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">bucket_name</span><span class="p">,</span> <span class="s2">&quot;allPrivate&quot;</span><span class="p">)</span>
 
 
+<span class="n">STORAGE</span> <span class="o">=</span> <span class="n">TypeVar</span><span class="p">(</span><span class="s2">&quot;STORAGE&quot;</span><span class="p">,</span> <span class="n">bound</span><span class="o">=</span><span class="s2">&quot;B2Storage&quot;</span><span class="p">)</span>
+
+
 <span class="nd">@dataclasses</span><span class="o">.</span><span class="n">dataclass</span>
 <span class="k">class</span> <span class="nc">B2Storage</span><span class="p">(</span><span class="n">Storage</span><span class="p">):</span>
     <span class="n">local_path</span><span class="p">:</span> <span class="n">Path</span>
@@ -250,32 +265,31 @@
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_bucket</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_bucket</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_connect_b2</span><span class="p">()</span>
 
-    <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">from_file</span><span class="p">(</span><span class="n">config_file</span><span class="p">:</span> <span class="n">PATH_LIKE</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">B2Storage</span><span class="p">:</span>
-        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
-            <span class="sa">f</span><span class="s2">&quot;Loading config from file: </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">config_file</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
-            <span class="n">file</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">config_file</span><span class="p">),</span>
-        <span class="p">)</span>
-        <span class="n">config</span> <span class="o">=</span> <span class="n">config_mod</span><span class="o">.</span><span class="n">read_config_file</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="n">config_file</span><span class="p">))</span>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">from_file</span><span class="p">(</span><span class="bp">cls</span><span class="p">:</span> <span class="nb">type</span><span class="p">[</span><span class="n">STORAGE</span><span class="p">],</span> <span class="n">env_file</span><span class="p">:</span> <span class="n">PATH_LIKE</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">STORAGE</span><span class="p">:</span>
+        <span class="n">env</span> <span class="o">=</span> <span class="n">env_mod</span><span class="o">.</span><span class="n">read_env_file</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="n">env_file</span><span class="p">))</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">from_env</span><span class="p">(</span><span class="n">env</span><span class="p">)</span>
 
-        <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;use_b2_simulation&quot;</span><span class="p">,</span> <span class="kc">False</span><span class="p">):</span>
-            <span class="n">fake_api</span> <span class="o">=</span> <span class="n">_SimulatedB2API</span><span class="p">()</span>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">from_env</span><span class="p">(</span><span class="bp">cls</span><span class="p">:</span> <span class="nb">type</span><span class="p">[</span><span class="n">STORAGE</span><span class="p">],</span> <span class="n">env</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">STORAGE</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">env</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;use_b2_simulation&quot;</span><span class="p">,</span> <span class="kc">False</span><span class="p">):</span>
+            <span class="n">fake_api</span> <span class="o">=</span> <span class="n">SimulatedB2API</span><span class="p">()</span>
             <span class="n">bucket</span> <span class="o">=</span> <span class="n">fake_api</span><span class="o">.</span><span class="n">bucket</span>
             <span class="n">b2_bucket</span> <span class="o">=</span> <span class="n">fake_api</span><span class="o">.</span><span class="n">bucket_name</span>
             <span class="n">b2_key_id</span> <span class="o">=</span> <span class="n">fake_api</span><span class="o">.</span><span class="n">application_key_id</span>
             <span class="n">b2_key</span> <span class="o">=</span> <span class="n">fake_api</span><span class="o">.</span><span class="n">master_key</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="n">b2_key_id</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;b2_key_id&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;B2_KEY_ID&quot;</span><span class="p">)</span>
-            <span class="n">b2_key</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;b2_key&quot;</span><span class="p">,</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;B2_KEY&quot;</span><span class="p">))</span>
-            <span class="n">b2_bucket</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;b2_bucket&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;B2_BUCKET&quot;</span><span class="p">)</span>
+            <span class="n">b2_key_id</span> <span class="o">=</span> <span class="n">env</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;b2_key_id&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;B2_KEY_ID&quot;</span><span class="p">)</span>
+            <span class="n">b2_key</span> <span class="o">=</span> <span class="n">env</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;b2_key&quot;</span><span class="p">,</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;B2_KEY&quot;</span><span class="p">))</span>
+            <span class="n">b2_bucket</span> <span class="o">=</span> <span class="n">env</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;b2_bucket&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;B2_BUCKET&quot;</span><span class="p">)</span>
             <span class="n">bucket</span> <span class="o">=</span> <span class="kc">None</span>
 
         <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">b2_key</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span>
         <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">b2_key_id</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span>
         <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">b2_bucket</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">B2Storage</span><span class="p">(</span>
-            <span class="n">local_path</span><span class="o">=</span><span class="n">Path</span><span class="p">(</span><span class="n">config</span><span class="p">[</span><span class="s2">&quot;local_path&quot;</span><span class="p">]),</span>
-            <span class="n">remote_path</span><span class="o">=</span><span class="n">Path</span><span class="p">(</span><span class="n">config</span><span class="p">[</span><span class="s2">&quot;b2_prefix&quot;</span><span class="p">]),</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span>
+            <span class="n">local_path</span><span class="o">=</span><span class="n">Path</span><span class="p">(</span><span class="n">env</span><span class="p">[</span><span class="s2">&quot;local_path&quot;</span><span class="p">]),</span>
+            <span class="n">remote_path</span><span class="o">=</span><span class="n">Path</span><span class="p">(</span><span class="n">env</span><span class="p">[</span><span class="s2">&quot;b2_prefix&quot;</span><span class="p">]),</span>
             <span class="n">b2_bucket</span><span class="o">=</span><span class="n">b2_bucket</span><span class="p">,</span>
             <span class="n">b2_key_id</span><span class="o">=</span><span class="n">b2_key_id</span><span class="p">,</span>
             <span class="n">b2_key</span><span class="o">=</span><span class="n">b2_key</span><span class="p">,</span>
@@ -414,10 +428,10 @@
 <span class="n">_global_storage</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Storage</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
 
 
-<span class="k">def</span> <span class="nf">get_storage</span><span class="p">(</span><span class="n">config_file</span><span class="p">:</span> <span class="n">PATH_LIKE</span><span class="p">,</span> <span class="n">reload</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Storage</span><span class="p">:</span>
+<span class="k">def</span> <span class="nf">get_storage</span><span class="p">(</span><span class="n">env_file</span><span class="p">:</span> <span class="n">PATH_LIKE</span><span class="p">,</span> <span class="n">reload</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Storage</span><span class="p">:</span>
     <span class="k">global</span> <span class="n">_global_storage</span>
     <span class="k">if</span> <span class="n">_global_storage</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">reload</span><span class="p">:</span>
-        <span class="k">return</span> <span class="n">B2Storage</span><span class="o">.</span><span class="n">from_file</span><span class="p">(</span><span class="n">config_file</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">B2Storage</span><span class="o">.</span><span class="n">from_file</span><span class="p">(</span><span class="n">env_file</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">_global_storage</span>
 </pre></div>
 
@@ -707,6 +721,81 @@ It is not allowed to remove a <code>key</code> only on the remote.</p>
 
                             </div>
                 </section>
+                <section id="SimulatedB2API">
+                                <div class="attr class">
+        <a class="headerlink" href="#SimulatedB2API">#&nbsp;&nbsp</a>
+
+        
+        <span class="def">class</span>
+        <span class="name">SimulatedB2API</span>:
+    </div>
+
+                <details>
+            <summary>View Source</summary>
+            <div class="codehilite"><pre><span></span><span class="k">class</span> <span class="nc">SimulatedB2API</span><span class="p">:</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">account_info</span> <span class="o">=</span> <span class="n">b2_api</span><span class="o">.</span><span class="n">InMemoryAccountInfo</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">cache</span> <span class="o">=</span> <span class="n">b2_api</span><span class="o">.</span><span class="n">InMemoryCache</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">api</span> <span class="o">=</span> <span class="n">b2_api</span><span class="o">.</span><span class="n">B2Api</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">account_info</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">cache</span><span class="p">,</span>
+            <span class="n">api_config</span><span class="o">=</span><span class="n">b2_api</span><span class="o">.</span><span class="n">B2HttpApiConfig</span><span class="p">(</span>
+                <span class="n">_raw_api_class</span><span class="o">=</span><span class="n">b2_api</span><span class="o">.</span><span class="n">RawSimulator</span>
+            <span class="p">),</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">raw_api</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">api</span><span class="o">.</span><span class="n">session</span><span class="o">.</span><span class="n">raw_api</span>
+        <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">application_key_id</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">master_key</span><span class="p">,</span>
+        <span class="p">)</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">raw_api</span><span class="o">.</span><span class="n">create_account</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">api</span><span class="o">.</span><span class="n">authorize_account</span><span class="p">(</span>
+            <span class="s2">&quot;production&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">application_key_id</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">master_key</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">bucket_name</span> <span class="o">=</span> <span class="s2">&quot;test-bucket&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">bucket</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">api</span><span class="o">.</span><span class="n">create_bucket</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">bucket_name</span><span class="p">,</span> <span class="s2">&quot;allPrivate&quot;</span><span class="p">)</span>
+</pre></div>
+
+        </details>
+
+    
+
+                            <div id="SimulatedB2API.__init__" class="classattr">
+                                        <div class="attr function"><a class="headerlink" href="#SimulatedB2API.__init__">#&nbsp;&nbsp</a>
+
+        
+            <span class="name">SimulatedB2API</span><span class="signature">()</span>
+    </div>
+
+                <details>
+            <summary>View Source</summary>
+            <div class="codehilite"><pre><span></span>    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">account_info</span> <span class="o">=</span> <span class="n">b2_api</span><span class="o">.</span><span class="n">InMemoryAccountInfo</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">cache</span> <span class="o">=</span> <span class="n">b2_api</span><span class="o">.</span><span class="n">InMemoryCache</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">api</span> <span class="o">=</span> <span class="n">b2_api</span><span class="o">.</span><span class="n">B2Api</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">account_info</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">cache</span><span class="p">,</span>
+            <span class="n">api_config</span><span class="o">=</span><span class="n">b2_api</span><span class="o">.</span><span class="n">B2HttpApiConfig</span><span class="p">(</span>
+                <span class="n">_raw_api_class</span><span class="o">=</span><span class="n">b2_api</span><span class="o">.</span><span class="n">RawSimulator</span>
+            <span class="p">),</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">raw_api</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">api</span><span class="o">.</span><span class="n">session</span><span class="o">.</span><span class="n">raw_api</span>
+        <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">application_key_id</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">master_key</span><span class="p">,</span>
+        <span class="p">)</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">raw_api</span><span class="o">.</span><span class="n">create_account</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">api</span><span class="o">.</span><span class="n">authorize_account</span><span class="p">(</span>
+            <span class="s2">&quot;production&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">application_key_id</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">master_key</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">bucket_name</span> <span class="o">=</span> <span class="s2">&quot;test-bucket&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">bucket</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">api</span><span class="o">.</span><span class="n">create_bucket</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">bucket_name</span><span class="p">,</span> <span class="s2">&quot;allPrivate&quot;</span><span class="p">)</span>
+</pre></div>
+
+        </details>
+
+    
+
+                            </div>
+                </section>
                 <section id="B2Storage">
                                 <div class="attr class">
         <a class="headerlink" href="#B2Storage">#&nbsp;&nbsp</a>
@@ -732,32 +821,31 @@ It is not allowed to remove a <code>key</code> only on the remote.</p>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_bucket</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_bucket</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_connect_b2</span><span class="p">()</span>
 
-    <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">from_file</span><span class="p">(</span><span class="n">config_file</span><span class="p">:</span> <span class="n">PATH_LIKE</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">B2Storage</span><span class="p">:</span>
-        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
-            <span class="sa">f</span><span class="s2">&quot;Loading config from file: </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">config_file</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
-            <span class="n">file</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">config_file</span><span class="p">),</span>
-        <span class="p">)</span>
-        <span class="n">config</span> <span class="o">=</span> <span class="n">config_mod</span><span class="o">.</span><span class="n">read_config_file</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="n">config_file</span><span class="p">))</span>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">from_file</span><span class="p">(</span><span class="bp">cls</span><span class="p">:</span> <span class="nb">type</span><span class="p">[</span><span class="n">STORAGE</span><span class="p">],</span> <span class="n">env_file</span><span class="p">:</span> <span class="n">PATH_LIKE</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">STORAGE</span><span class="p">:</span>
+        <span class="n">env</span> <span class="o">=</span> <span class="n">env_mod</span><span class="o">.</span><span class="n">read_env_file</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="n">env_file</span><span class="p">))</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">from_env</span><span class="p">(</span><span class="n">env</span><span class="p">)</span>
 
-        <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;use_b2_simulation&quot;</span><span class="p">,</span> <span class="kc">False</span><span class="p">):</span>
-            <span class="n">fake_api</span> <span class="o">=</span> <span class="n">_SimulatedB2API</span><span class="p">()</span>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">from_env</span><span class="p">(</span><span class="bp">cls</span><span class="p">:</span> <span class="nb">type</span><span class="p">[</span><span class="n">STORAGE</span><span class="p">],</span> <span class="n">env</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">STORAGE</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">env</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;use_b2_simulation&quot;</span><span class="p">,</span> <span class="kc">False</span><span class="p">):</span>
+            <span class="n">fake_api</span> <span class="o">=</span> <span class="n">SimulatedB2API</span><span class="p">()</span>
             <span class="n">bucket</span> <span class="o">=</span> <span class="n">fake_api</span><span class="o">.</span><span class="n">bucket</span>
             <span class="n">b2_bucket</span> <span class="o">=</span> <span class="n">fake_api</span><span class="o">.</span><span class="n">bucket_name</span>
             <span class="n">b2_key_id</span> <span class="o">=</span> <span class="n">fake_api</span><span class="o">.</span><span class="n">application_key_id</span>
             <span class="n">b2_key</span> <span class="o">=</span> <span class="n">fake_api</span><span class="o">.</span><span class="n">master_key</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="n">b2_key_id</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;b2_key_id&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;B2_KEY_ID&quot;</span><span class="p">)</span>
-            <span class="n">b2_key</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;b2_key&quot;</span><span class="p">,</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;B2_KEY&quot;</span><span class="p">))</span>
-            <span class="n">b2_bucket</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;b2_bucket&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;B2_BUCKET&quot;</span><span class="p">)</span>
+            <span class="n">b2_key_id</span> <span class="o">=</span> <span class="n">env</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;b2_key_id&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;B2_KEY_ID&quot;</span><span class="p">)</span>
+            <span class="n">b2_key</span> <span class="o">=</span> <span class="n">env</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;b2_key&quot;</span><span class="p">,</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;B2_KEY&quot;</span><span class="p">))</span>
+            <span class="n">b2_bucket</span> <span class="o">=</span> <span class="n">env</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;b2_bucket&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;B2_BUCKET&quot;</span><span class="p">)</span>
             <span class="n">bucket</span> <span class="o">=</span> <span class="kc">None</span>
 
         <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">b2_key</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span>
         <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">b2_key_id</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span>
         <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">b2_bucket</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">B2Storage</span><span class="p">(</span>
-            <span class="n">local_path</span><span class="o">=</span><span class="n">Path</span><span class="p">(</span><span class="n">config</span><span class="p">[</span><span class="s2">&quot;local_path&quot;</span><span class="p">]),</span>
-            <span class="n">remote_path</span><span class="o">=</span><span class="n">Path</span><span class="p">(</span><span class="n">config</span><span class="p">[</span><span class="s2">&quot;b2_prefix&quot;</span><span class="p">]),</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span>
+            <span class="n">local_path</span><span class="o">=</span><span class="n">Path</span><span class="p">(</span><span class="n">env</span><span class="p">[</span><span class="s2">&quot;local_path&quot;</span><span class="p">]),</span>
+            <span class="n">remote_path</span><span class="o">=</span><span class="n">Path</span><span class="p">(</span><span class="n">env</span><span class="p">[</span><span class="s2">&quot;b2_prefix&quot;</span><span class="p">]),</span>
             <span class="n">b2_bucket</span><span class="o">=</span><span class="n">b2_bucket</span><span class="p">,</span>
             <span class="n">b2_key_id</span><span class="o">=</span><span class="n">b2_key_id</span><span class="p">,</span>
             <span class="n">b2_key</span><span class="o">=</span><span class="n">b2_key</span><span class="p">,</span>
@@ -920,40 +1008,56 @@ It is not allowed to remove a <code>key</code> only on the remote.</p>
                             <div id="B2Storage.from_file" class="classattr">
                                         <div class="attr function"><a class="headerlink" href="#B2Storage.from_file">#&nbsp;&nbsp</a>
 
-                <div class="decorator">@staticmethod</div>
+                <div class="decorator">@classmethod</div>
 
             <span class="def">def</span>
-            <span class="name">from_file</span><span class="signature">(config_file: Union[str, pathlib.Path]) -&gt; <a href="#B2Storage">phd_flow.io.B2Storage</a></span>:
+            <span class="name">from_file</span><span class="signature">(cls: type[~STORAGE], env_file: Union[str, pathlib.Path]) -&gt; ~STORAGE</span>:
     </div>
 
                 <details>
             <summary>View Source</summary>
-            <div class="codehilite"><pre><span></span>    <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">from_file</span><span class="p">(</span><span class="n">config_file</span><span class="p">:</span> <span class="n">PATH_LIKE</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">B2Storage</span><span class="p">:</span>
-        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
-            <span class="sa">f</span><span class="s2">&quot;Loading config from file: </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">config_file</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
-            <span class="n">file</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">config_file</span><span class="p">),</span>
-        <span class="p">)</span>
-        <span class="n">config</span> <span class="o">=</span> <span class="n">config_mod</span><span class="o">.</span><span class="n">read_config_file</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="n">config_file</span><span class="p">))</span>
+            <div class="codehilite"><pre><span></span>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">from_file</span><span class="p">(</span><span class="bp">cls</span><span class="p">:</span> <span class="nb">type</span><span class="p">[</span><span class="n">STORAGE</span><span class="p">],</span> <span class="n">env_file</span><span class="p">:</span> <span class="n">PATH_LIKE</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">STORAGE</span><span class="p">:</span>
+        <span class="n">env</span> <span class="o">=</span> <span class="n">env_mod</span><span class="o">.</span><span class="n">read_env_file</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="n">env_file</span><span class="p">))</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">from_env</span><span class="p">(</span><span class="n">env</span><span class="p">)</span>
+</pre></div>
 
-        <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;use_b2_simulation&quot;</span><span class="p">,</span> <span class="kc">False</span><span class="p">):</span>
-            <span class="n">fake_api</span> <span class="o">=</span> <span class="n">_SimulatedB2API</span><span class="p">()</span>
+        </details>
+
+    
+
+                            </div>
+                            <div id="B2Storage.from_env" class="classattr">
+                                        <div class="attr function"><a class="headerlink" href="#B2Storage.from_env">#&nbsp;&nbsp</a>
+
+                <div class="decorator">@classmethod</div>
+
+            <span class="def">def</span>
+            <span class="name">from_env</span><span class="signature">(cls: type[~STORAGE], env: dict[str, typing.Any]) -&gt; ~STORAGE</span>:
+    </div>
+
+                <details>
+            <summary>View Source</summary>
+            <div class="codehilite"><pre><span></span>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">from_env</span><span class="p">(</span><span class="bp">cls</span><span class="p">:</span> <span class="nb">type</span><span class="p">[</span><span class="n">STORAGE</span><span class="p">],</span> <span class="n">env</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">STORAGE</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">env</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;use_b2_simulation&quot;</span><span class="p">,</span> <span class="kc">False</span><span class="p">):</span>
+            <span class="n">fake_api</span> <span class="o">=</span> <span class="n">SimulatedB2API</span><span class="p">()</span>
             <span class="n">bucket</span> <span class="o">=</span> <span class="n">fake_api</span><span class="o">.</span><span class="n">bucket</span>
             <span class="n">b2_bucket</span> <span class="o">=</span> <span class="n">fake_api</span><span class="o">.</span><span class="n">bucket_name</span>
             <span class="n">b2_key_id</span> <span class="o">=</span> <span class="n">fake_api</span><span class="o">.</span><span class="n">application_key_id</span>
             <span class="n">b2_key</span> <span class="o">=</span> <span class="n">fake_api</span><span class="o">.</span><span class="n">master_key</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="n">b2_key_id</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;b2_key_id&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;B2_KEY_ID&quot;</span><span class="p">)</span>
-            <span class="n">b2_key</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;b2_key&quot;</span><span class="p">,</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;B2_KEY&quot;</span><span class="p">))</span>
-            <span class="n">b2_bucket</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;b2_bucket&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;B2_BUCKET&quot;</span><span class="p">)</span>
+            <span class="n">b2_key_id</span> <span class="o">=</span> <span class="n">env</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;b2_key_id&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;B2_KEY_ID&quot;</span><span class="p">)</span>
+            <span class="n">b2_key</span> <span class="o">=</span> <span class="n">env</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;b2_key&quot;</span><span class="p">,</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;B2_KEY&quot;</span><span class="p">))</span>
+            <span class="n">b2_bucket</span> <span class="o">=</span> <span class="n">env</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;b2_bucket&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;B2_BUCKET&quot;</span><span class="p">)</span>
             <span class="n">bucket</span> <span class="o">=</span> <span class="kc">None</span>
 
         <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">b2_key</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span>
         <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">b2_key_id</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span>
         <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">b2_bucket</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">B2Storage</span><span class="p">(</span>
-            <span class="n">local_path</span><span class="o">=</span><span class="n">Path</span><span class="p">(</span><span class="n">config</span><span class="p">[</span><span class="s2">&quot;local_path&quot;</span><span class="p">]),</span>
-            <span class="n">remote_path</span><span class="o">=</span><span class="n">Path</span><span class="p">(</span><span class="n">config</span><span class="p">[</span><span class="s2">&quot;b2_prefix&quot;</span><span class="p">]),</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span>
+            <span class="n">local_path</span><span class="o">=</span><span class="n">Path</span><span class="p">(</span><span class="n">env</span><span class="p">[</span><span class="s2">&quot;local_path&quot;</span><span class="p">]),</span>
+            <span class="n">remote_path</span><span class="o">=</span><span class="n">Path</span><span class="p">(</span><span class="n">env</span><span class="p">[</span><span class="s2">&quot;b2_prefix&quot;</span><span class="p">]),</span>
             <span class="n">b2_bucket</span><span class="o">=</span><span class="n">b2_bucket</span><span class="p">,</span>
             <span class="n">b2_key_id</span><span class="o">=</span><span class="n">b2_key_id</span><span class="p">,</span>
             <span class="n">b2_key</span><span class="o">=</span><span class="n">b2_key</span><span class="p">,</span>
@@ -1305,17 +1409,17 @@ It is not allowed to remove a <code>key</code> only on the remote.</p>
         
             <span class="def">def</span>
             <span class="name">get_storage</span><span class="signature">(
-    config_file: Union[str, pathlib.Path],
+    env_file: Union[str, pathlib.Path],
     reload: bool = False
 ) -&gt; <a href="#Storage">phd_flow.io.Storage</a></span>:
     </div>
 
                 <details>
             <summary>View Source</summary>
-            <div class="codehilite"><pre><span></span><span class="k">def</span> <span class="nf">get_storage</span><span class="p">(</span><span class="n">config_file</span><span class="p">:</span> <span class="n">PATH_LIKE</span><span class="p">,</span> <span class="n">reload</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Storage</span><span class="p">:</span>
+            <div class="codehilite"><pre><span></span><span class="k">def</span> <span class="nf">get_storage</span><span class="p">(</span><span class="n">env_file</span><span class="p">:</span> <span class="n">PATH_LIKE</span><span class="p">,</span> <span class="n">reload</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Storage</span><span class="p">:</span>
     <span class="k">global</span> <span class="n">_global_storage</span>
     <span class="k">if</span> <span class="n">_global_storage</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">reload</span><span class="p">:</span>
-        <span class="k">return</span> <span class="n">B2Storage</span><span class="o">.</span><span class="n">from_file</span><span class="p">(</span><span class="n">config_file</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">B2Storage</span><span class="o">.</span><span class="n">from_file</span><span class="p">(</span><span class="n">env_file</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">_global_storage</span>
 </pre></div>
 
