@@ -12,7 +12,7 @@ import tap
 T = TypeVar("T")
 
 
-class TapPatch(tap.Tap):
+class _TapPatch(tap.Tap):
     def _filter_variables(self, dct: dict[str, Any]) -> dict[str, Any]:
         to_remove = [
             key
@@ -32,21 +32,22 @@ class TapPatch(tap.Tap):
         return self._filter_variables(super()._get_class_variables())
 
 
-def arg_parser_from_dataclass(cls: type) -> type[TapPatch]:
+def _arg_parser_from_dataclass(cls: type) -> type[_TapPatch]:
     """Creates an ArgumentParser from a dataclass using the tap library."""
     dct = dict(cls.__dict__)
 
-    dct["__init__"] = TapPatch.__init__
-    dct["from_dict"] = TapPatch.from_dict
-    dct["as_dict"] = TapPatch.as_dict
-    dct["parse_args"] = TapPatch.parse_args
-    dct["process_args"] = TapPatch.process_args
-    dct["__setattr__"] = TapPatch.__setattr__
+    dct["__init__"] = _TapPatch.__init__
+    dct["from_dict"] = _TapPatch.from_dict
+    dct["as_dict"] = _TapPatch.as_dict
+    dct["parse_args"] = _TapPatch.parse_args
+    dct["process_args"] = _TapPatch.process_args
+    dct["__setattr__"] = _TapPatch.__setattr__
 
-    # This is madness:
+    # This is magic: we create a new class using type that has the modified
+    # class __dict__ of the given cls by inhirets from the _TapPatch class.
     return type(
         cls.__name__ + "PatchedParser",
-        cls.__bases__ + (TapPatch,),
+        cls.__bases__ + (_TapPatch,),
         dct,
     )
 
@@ -56,9 +57,32 @@ ARGS = TypeVar("ARGS", bound="Args")
 
 @dataclasses.dataclass(frozen=True)
 class Args:
+    """Holds the arguments for a Node.
+
+    The arguments should be JSON serializable.
+
+    # Argument Parsing
+
+    When parsing from the command line, the following types are support out of
+    the box:
+
+    ```
+    str, int, float, bool
+    Optional, Optional[str], Optional[int], Optional[float], Optional[bool]
+    List, List[str], List[int], List[float], List[bool]
+    Set, Set[str], Set[int], Set[float], Set[bool]
+    Tuple, Tuple[Type1, Type2, etc.], Tuple[Type, ...]
+    Literal
+    ```
+
+    You can overwrite the `process_arg` function to support more types.
+    See: https://github.com/swansonk14/typed-argument-parser
+
+    """
+
     @classmethod
-    def _get_arg_parser(cls: type[ARGS]) -> TapPatch:
-        return arg_parser_from_dataclass(cls)()
+    def _get_arg_parser(cls: type[ARGS]) -> _TapPatch:
+        return _arg_parser_from_dataclass(cls)()
 
     @classmethod
     def _get_keys(cls: type[ARGS]) -> list[str]:
