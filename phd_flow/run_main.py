@@ -36,7 +36,7 @@ class MainRunner:
         else:
             self.argv = argv
 
-        self.parser = self.create_parser()
+        self.create_parser()
 
     @staticmethod
     def find_all_subclasses() -> list[type[Node]]:
@@ -51,39 +51,50 @@ class MainRunner:
             key=lambda c: (c.__module__, c.__qualname__),
         )
 
-    def create_parser(self) -> argparse.ArgumentParser:
-        parser = argparse.ArgumentParser()
-        parser.set_defaults(func=self.help)
-        subparsers = parser.add_subparsers()
+    def create_parser(
+        self,
+    ):
+        self.parser = argparse.ArgumentParser()
+        self.parser.set_defaults(func=self.help)
+        subparsers = self.parser.add_subparsers()
 
         list = subparsers.add_parser("list")
         list.set_defaults(func=self.list)
 
         # create the parser for the "bar" command
-        run = subparsers.add_parser("run")
-        run.add_argument(
+        self.run_parser = subparsers.add_parser("run", add_help=False)
+        self.run_parser.add_argument(
+            "-h",
+            "--help",
+            action="store_true",
+            help="Print help message.",
+        )
+        self.run_parser.add_argument(
             "--pdb",
             action="store_true",
             default=False,
             help="enter pdb debuggin on error",
         )
-        run.add_argument(
-            "node_name", nargs=1, type=str, help="enter pdb debuggin on error"
+        self.run_parser.add_argument(
+            "node_name",
+            nargs="?",
+            type=str,
+            default="",
+            help="enter pdb debuggin on error",
         )
-        run.add_argument(
+        self.run_parser.add_argument(
             "--config",
             type=str,
             default=None,
             help="path to a config file containing the node's parameters.",
         )
-        run.add_argument(
+        self.run_parser.add_argument(
             "--env",
             type=str,
             default=None,
             help="path to an enviroment file containing the B2 configuration.",
         )
-        run.set_defaults(func=self.run)
-        return parser
+        self.run_parser.set_defaults(func=self.run)
 
     def help(self) -> None:
         print("Here is a list with all available actions:", file=sys.stderr)
@@ -116,7 +127,14 @@ class MainRunner:
         return matched_nodes[0]
 
     def run(self):
-        node_name = self.args.node_name[0]
+        if self.args.help:
+            if self.args.node_name == "":
+                self.run_parser.print_help()
+                sys.exit()
+            else:
+                # print the help message of the node
+                self.unknown_args.append("--help")
+        node_name = self.args.node_name
         node_cls = self.get_node(node_name)
 
         with utils.pdb_post_mortem(self.args.pdb):
