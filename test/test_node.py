@@ -1,6 +1,5 @@
 import dataclasses
 import random
-from pathlib import Path
 from typing import Any
 
 from phd_flow import io
@@ -40,8 +39,11 @@ def test_run_node(storage: io.Storage, env: dict[str, Any]):
     node = SampleInt("test_sample_int", storage, args, env)
     assert node.run() <= 10
 
-    files = list(storage.remote_ls("test_sample_int"))
-    assert Path("/test_sample_int/result.txt") in files
+    files = [
+        str(file).lstrip("/") for file in storage.remote_ls("test_sample_int")
+    ]
+
+    assert "test_sample_int/result.txt" in files
 
 
 def test_run_pipeline(storage: io.Storage, env: dict[str, Any]):

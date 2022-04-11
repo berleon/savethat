@@ -127,6 +127,7 @@ class MainRunner:
         return matched_nodes[0]
 
     def run(self):
+
         if self.args.help:
             if self.args.node_name == "":
                 self.run_parser.print_help()
@@ -134,7 +135,9 @@ class MainRunner:
             else:
                 # print the help message of the node
                 self.unknown_args.append("--help")
+
         node_name = self.args.node_name
+        node_args = self.argv[self.argv.index(node_name) + 1 :]
         node_cls = self.get_node(node_name)
 
         with utils.pdb_post_mortem(self.args.pdb):
@@ -148,7 +151,17 @@ class MainRunner:
             else:
                 env_file = self.env_file
 
+            # if config is set and
+
+            read_config_from_file = False
+
             if self.args.config is not None:
+                # --config flag given but after node?
+                read_config_from_file = self.argv.index(
+                    "--config"
+                ) < self.argv.index(node_name)
+
+            if read_config_from_file:
                 if len(self.unknown_args) != 0:
                     raise ValueError(
                         "Got both config file and also some arguments.\n"
@@ -161,7 +174,7 @@ class MainRunner:
                 )
             else:
                 created_node: Node[ARGS, T] = node_mod.create_node(
-                    node_cls, self.unknown_args, env_file
+                    node_cls, node_args, env_file
                 )
             created_node.register_pre_run_hook(
                 lambda n: log.setup_logger(n.output_dir)

@@ -10,7 +10,7 @@ def test_main(tmp_path: Path, env_file: Path):
         ),
         (
             f"python -m test.test_package.my_package run --env {env_file} "
-            "--pdb FitOLS --dataset ./test/data/california_tiny.csv"
+            "FitOLS --dataset ./test/data/california_tiny.csv"
             " --target MedHouseVal"
         ),
     ]
