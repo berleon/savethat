@@ -194,7 +194,7 @@ class B2Storage(Storage):
         for fid, _ in self.bucket.ls(
             str(self.remote_path / key), recursive=recursive
         ):
-            yield Path(fid.file_name[len(str(self.remote_path)) :])
+            yield Path(fid.file_name[len(str(self.remote_path)) :].lstrip("/"))
 
     def remove(
         self, key: PATH_LIKE, local: bool = True, remote: bool = False
