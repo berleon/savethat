@@ -3,7 +3,6 @@ from __future__ import annotations
 import argparse
 import inspect
 import sys
-from codecs import ignore_errors
 from typing import Optional, TypeVar
 
 import anyconfig
@@ -29,7 +28,7 @@ class MainRunner:
             self.argv = sys.argv[1:]
         else:
             self.argv = argv
-        use_debug = '--debug' in self.argv
+        use_debug = "--debug" in self.argv
         self.env_file = env_file
         self.package = package
         env.infer_project_dir(self.package)
@@ -53,7 +52,8 @@ class MainRunner:
         for cls in subclasses:
             if inspect.isabstract(cls):
                 logger.info(
-                    f"`{cls.__module__}.{cls.__qualname__}` is an abstract class -- will ignore it."
+                    f"`{cls.__module__}.{cls.__qualname__}`"
+                    " is an abstract class -- will ignore it."
                 )
             else:
                 qualified_subclasses.append(cls)

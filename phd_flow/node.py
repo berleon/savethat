@@ -121,7 +121,7 @@ class Node(Generic[ARGS, T], metaclass=abc.ABCMeta):
         hook: Callable[[Node[ARGS, T]], None],
     ) -> HookHandle:
         """Registers a hook which is executed before the node is run."""
-        idx = random.randint(0, 2 ** 64)
+        idx = random.randint(0, 2**64)
         self._hooks_pre_run[idx] = hook
         return HookHandle(self._hooks_pre_run, idx)
 
@@ -129,7 +129,7 @@ class Node(Generic[ARGS, T], metaclass=abc.ABCMeta):
         self, hook: Callable[[Node[ARGS, T], T], None]
     ) -> HookHandle:
         """Registers a hook which is executed after the node is run."""
-        idx = random.randint(0, 2 ** 64)
+        idx = random.randint(0, 2**64)
         self._hooks_run[idx] = hook
         return HookHandle(self._hooks_run, idx)
 

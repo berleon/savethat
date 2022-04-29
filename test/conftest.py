@@ -28,4 +28,5 @@ def env_file() -> Path:
 
 @pytest.fixture
 def env(env_file: Path) -> dict[str, Any]:
+    phd_flow.set_project_dir(Path(__file__).parent.parent)
     return phd_flow.env.read_env_file(env_file)

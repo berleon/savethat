@@ -53,4 +53,5 @@ def test_run_pipeline(storage: io.Storage, env: dict[str, Any]):
         lambda s, i: PrintArgs(key_to_print=str(s.output_dir / "result.txt")),
     )
     args = SampleIntArgs(max=20)
+
     pipeline("test_pipeline", storage, args, env).run()

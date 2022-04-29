@@ -78,11 +78,12 @@ def set_enviroment_file(path: Union[Path, str]) -> None:
 
 def read_env_file(path: Union[Path, str]) -> dict[str, Any]:
     def _replace_placeholder(value: Any) -> Any:
-        
         if isinstance(value, str):
             if "${PROJECT_ROOT}" in value:
                 if _project_dir is None:
-                    raise ValueError("project_dir is not set. Use set_project_dir()")
+                    raise ValueError(
+                        "project_dir is not set. Use set_project_dir()"
+                    )
                 return value.replace("${PROJECT_ROOT}", str(_project_dir))
             else:
                 return value
