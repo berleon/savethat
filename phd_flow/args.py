@@ -113,6 +113,21 @@ class Args:
         return obj
 
     @classmethod
+    def from_json(
+        cls: type[ARGS],
+        path: Union[Path, str, None] = None,
+        json_str: Optional[str] = None,
+    ):
+        if path is not None:
+            path = Path(path)
+            with path.open() as f:
+                json_str = f.read()
+        if json_str is None:
+            raise ValueError("Either path or json_str must be provided.")
+        state = json.loads(json_str)
+        return cls.from_dict(state)
+
+    @classmethod
     def from_dict(
         cls: type[ARGS],
         state: dict[str, Any],
