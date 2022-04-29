@@ -103,6 +103,7 @@ class Node(Generic[ARGS, T], metaclass=abc.ABCMeta):
         )
         self._hooks_pre_run: dict[int, Callable[[Node[ARGS, T]], None]] = {}
         self._hooks_run: dict[int, Callable[[Node[ARGS, T], T], None]] = {}
+        self.logger = logger.bind(key=self.key)
         self.setup()
 
     @property
@@ -157,7 +158,7 @@ class Node(Generic[ARGS, T], metaclass=abc.ABCMeta):
         try:
             for pre_hook in self._hooks_pre_run.values():
                 pre_hook(self)
-            logger.info(
+            self.logger.info(
                 "Run Node",
                 node=self.name,
                 key=str(self.key),
@@ -165,12 +166,12 @@ class Node(Generic[ARGS, T], metaclass=abc.ABCMeta):
             )
             args_file = str(self.output_dir / "args.json")
             self.args.save(args_file)
-            logger.info(f"Saving arguments to: {args_file}")
+            self.logger.info(f"Saving arguments to: {args_file}")
 
             result = self._run()
 
             pickle_file = self.output_dir / "results.pickle"
-            logger.info(f"Saving results to to: {pickle_file}")
+            self.logger.info(f"Saving results to to: {pickle_file}")
             with open(pickle_file, "wb") as fb:
                 pickle.dump(result, fb)
 
