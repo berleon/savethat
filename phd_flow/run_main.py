@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import inspect
 import sys
+from codecs import ignore_errors
 from typing import Optional, TypeVar
 
 import anyconfig
@@ -24,30 +25,41 @@ class MainRunner:
         env_file: Optional[io.PATH_LIKE] = None,
         argv: Optional[list[str]] = None,
     ):
-        self.env_file = env_file
-        self.package = package
-        env.infer_project_dir(self.package)
-
-        utils.import_submodules(package)
-        self.nodes = self.find_all_subclasses()
-
         if argv is None:
             self.argv = sys.argv[1:]
         else:
             self.argv = argv
+        use_debug = '--debug' in self.argv
+        self.env_file = env_file
+        self.package = package
+        env.infer_project_dir(self.package)
 
+        utils.import_submodules(package, ignore_errors=False)
+        self.nodes = self.find_all_subclasses(debug=use_debug)
         self.create_parser()
 
     @staticmethod
-    def find_all_subclasses() -> list[type[Node]]:
+    def find_all_subclasses(debug: bool = False) -> list[type[Node]]:
         def all_subclasses(cls: type) -> set[type[Node]]:
+            if debug:
+                logger.info(f"Scanning: {cls.__module__}.{cls.__qualname__}")
             return set(cls.__subclasses__()).union(
                 [s for c in cls.__subclasses__() for s in all_subclasses(c)]
             )
 
         subclasses: set[type[Node]] = all_subclasses(Node)
+
+        qualified_subclasses = []
+        for cls in subclasses:
+            if inspect.isabstract(cls):
+                logger.info(
+                    f"`{cls.__module__}.{cls.__qualname__}` is an abstract class -- will ignore it."
+                )
+            else:
+                qualified_subclasses.append(cls)
+
         return sorted(
-            (c for c in subclasses if not inspect.isabstract(c)),
+            qualified_subclasses,
             key=lambda c: (c.__module__, c.__qualname__),
         )
 
