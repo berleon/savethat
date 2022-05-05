@@ -7,13 +7,16 @@ import os
 import shutil
 import sys
 import time
+from collections import defaultdict
+from datetime import datetime
 from pathlib import Path
-from typing import IO, Any, Iterator, Optional, TypeVar, Union
+from typing import IO, Any, Iterable, Iterator, Optional, TypeVar, Union, cast
 
 import b2sdk.v2 as b2_api
 from loguru import logger
 
 from phd_flow import env as env_mod
+from phd_flow import utils
 
 T = TypeVar("T")
 REMOTE_FILE = TypeVar("REMOTE_FILE")
@@ -69,7 +72,7 @@ class Storage(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def remove(
         self, key: PATH_LIKE, local: bool = True, remote: bool = False
-    ) -> Iterator[Path]:
+    ) -> None:
         """Removes the `key` locally or remotely.
 
         Use with care, this will also delete any subdirectories.
@@ -80,6 +83,71 @@ class Storage(metaclass=abc.ABCMeta):
             local: remove the key locally
             remote: remove the key on the cloud storage
         """
+
+    @abc.abstractmethod
+    def ls(self, key: PATH_LIKE) -> Iterator[Path]:
+        pass
+
+    @staticmethod
+    def _runs_from_paths(paths: Iterable[Path]) -> dict[Path, set[Path]]:
+        runs = defaultdict(set)
+        for path in paths:
+            if ".bzEmpty" in str(path):
+                continue
+            first_part = Path(path.parts[0])
+            runs[first_part].add(path)
+        return runs
+
+    @staticmethod
+    def _get_datetime_from_run(run: str) -> datetime:
+        date_str = run.split("_")[-1]
+        return utils.parse_time(date_str)
+
+    def find_runs(
+        self,
+        path: PATH_LIKE,
+        remote: bool = True,
+        only_failed: bool = False,
+        only_completed: bool = False,
+        absolute: bool = False,
+        before: Optional[datetime] = None,
+        after: Optional[datetime] = None,
+    ) -> Iterator[tuple[Path, list[Path]]]:
+        # It looks inefficient too loop over all files, but b2 actually
+        # does loop over all files anyway.
+
+        def format_path(path: PATH_LIKE) -> Path:
+            if absolute:
+                return self / path
+            else:
+                return Path(path)
+
+        if remote:
+            path_gen = iter(self.remote_ls(path, recursive=True))
+        else:
+            path_gen = iter(self.ls(path))
+
+        for run, run_paths in self._runs_from_paths(path_gen).items():
+            if run / "args.json" not in run_paths:
+                # does not look like a run
+                continue
+
+            result_file = run / "results.pickle"
+
+            if only_failed and result_file in run_paths:
+                continue
+
+            if only_completed and result_file not in run_paths:
+                continue
+
+            if before is not None or after is not None:
+                date = self._get_datetime_from_run(str(run))
+                if before is not None and date > before:
+                    continue
+                if after is not None and date < after:
+                    continue
+
+            yield format_path(run), list(map(format_path, sorted(run_paths)))
 
 
 class SimulatedB2API:
@@ -137,7 +205,9 @@ class B2Storage(Storage):
         else:
             b2_key_id = env.get("b2_key_id") or os.environ.get("B2_KEY_ID")
             b2_key = env.get("b2_key", os.environ.get("B2_KEY"))
-            b2_bucket = env.get("b2_bucket") or os.environ.get("B2_BUCKET")
+            b2_bucket = cast(
+                str, env.get("b2_bucket") or os.environ.get("B2_BUCKET")
+            )
             bucket = None
 
         assert isinstance(b2_key, str)
@@ -192,26 +262,30 @@ class B2Storage(Storage):
         self, key: PATH_LIKE = "", recursive: bool = False
     ) -> Iterator[Path]:
         for fid, _ in self.bucket.ls(
-            str(self.remote_path / key), recursive=recursive
+            str(self.remote_path), recursive=recursive
         ):
-            yield Path(fid.file_name[len(str(self.remote_path)) :].lstrip("/"))
+            prefix = str(self.remote_path / key)
+            if fid.file_name.startswith(prefix):
+                yield Path(
+                    fid.file_name[len(str(self.remote_path)) :].lstrip("/")
+                )
 
     def remove(
         self, key: PATH_LIKE, local: bool = True, remote: bool = False
-    ) -> Iterator[Path]:
+    ) -> None:
         if remote and not local:
             raise ValueError(
                 "It is not a good idea to remove remote files "
                 "while keeping the local files. "
                 f"Key: {key}"
             )
+
         if remote:
-            logger.info(f"Removing remote: {key}")
+            logger.info(f"Deleting remote: {key}")
             for fid, _ in self.bucket.ls(str(self.remote_path / key)):
                 fid.delete()
-                yield Path(fid.file_name[len(str(self.remote_path)) :])
-        if local:
-            logger.info(f"Removing local: {key}")
+        if local and (self / key).exists():
+            logger.info(f"Deleting local: {key}")
             shutil.rmtree(self / key)
 
     def get_b2_sync_url(self, key: PATH_LIKE) -> str:

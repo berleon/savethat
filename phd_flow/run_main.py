@@ -3,7 +3,8 @@ from __future__ import annotations
 import argparse
 import inspect
 import sys
-from typing import Optional, TypeVar
+from pathlib import Path
+from typing import Iterator, Optional, TypeVar
 
 import anyconfig
 from loguru import logger
@@ -29,9 +30,16 @@ class MainRunner:
         else:
             self.argv = argv
         use_debug = "--debug" in self.argv
-        self.env_file = env_file
+
         self.package = package
         env.infer_project_dir(self.package)
+
+        if env_file is not None:
+            self.env_file = env_file
+        else:
+            self.env_file = env.find_enviroment_file(
+                env.infer_project_dir(self.package)
+            )
 
         utils.import_submodules(package, ignore_errors=False)
         self.nodes = self.find_all_subclasses(debug=use_debug)
@@ -66,14 +74,21 @@ class MainRunner:
     def create_parser(
         self,
     ):
+
+        # we need to use argparse as tap cannot handle subparsers properly.
         self.parser = argparse.ArgumentParser()
         self.parser.set_defaults(func=self.help)
         subparsers = self.parser.add_subparsers()
 
-        list = subparsers.add_parser("list")
-        list.set_defaults(func=self.list)
+        # ---------------------------------------------------------------
+        # nodes
 
-        # create the parser for the "bar" command
+        nodes_parser = subparsers.add_parser("nodes")
+        nodes_parser.set_defaults(func=self.list_nodes)
+
+        # ---------------------------------------------------------------
+        # run
+
         self.run_parser = subparsers.add_parser("run", add_help=False)
         self.run_parser.add_argument(
             "-h",
@@ -108,10 +123,130 @@ class MainRunner:
         )
         self.run_parser.set_defaults(func=self.run)
 
+        # ---------------------------------------------------------------
+        # download
+
+        download_parser = subparsers.add_parser("download", add_help=True)
+        download_parser.set_defaults(func=self.download)
+        download_parser.add_argument(
+            "key",
+            nargs=1,
+            default="",
+            help="Key to download.",
+        )
+        # ---------------------------------------------------------------
+        # upload
+
+        upload_parser = subparsers.add_parser("upload", add_help=True)
+        upload_parser.set_defaults(func=self.upload)
+        upload_parser.add_argument(
+            "key",
+            nargs=1,
+            default="",
+            help="Key to upload.",
+        )
+        # ---------------------------------------------------------------
+        # ls
+
+        self.ls_parser = subparsers.add_parser("ls", add_help=True)
+        self.ls_parser.set_defaults(func=self.ls)
+        self.ls_parser.add_argument(
+            "-r", "--recursive", help="Recursively list files."
+        )
+        self.ls_parser.add_argument(
+            "--before", default=None, help="List outputs before this date."
+        )
+        self.ls_parser.add_argument(
+            "--after", default=None, help="List outputs after this date."
+        )
+        self.ls_parser.add_argument(
+            "--all",
+            default=False,
+            action="store_true",
+            help="List all files of the runs.",
+        )
+        self.ls_parser.add_argument(
+            "--failed",
+            action="store_true",
+            default=False,
+            help="List only runs without results.",
+        )
+        self.ls_parser.add_argument(
+            "--completed",
+            action="store_true",
+            default=False,
+            help="List only runs with results.",
+        )
+        self.ls_parser.add_argument(
+            "--local",
+            default=False,
+            action="store_true",
+            help="List only locally stored runs.",
+        )
+        self.ls_parser.add_argument(
+            "-a",
+            "--absolute",
+            action="store_true",
+            help="Print absolute paths.",
+        )
+        self.ls_parser.add_argument(
+            "path",
+            nargs="?",
+            default="",
+            help="(Partial) path to search for outputs.",
+        )
+
+        # ---------------------------------------------------------------
+        # rm
+
+        self.rm_parser = subparsers.add_parser("rm", add_help=False)
+        self.rm_parser.add_argument(
+            "-h", "--help", action="store_true", help="Print help message."
+        )
+        self.rm_parser.add_argument(
+            "--failed",
+            action="store_true",
+            default=False,
+            help="Remove runs without results.",
+        )
+        self.rm_parser.add_argument(
+            "--local",
+            action="store_true",
+            default=False,
+            help="Remove runs only locally.",
+        )
+        self.rm_parser.add_argument(
+            "--force",
+            action="store_true",
+            default=False,
+            help="Do not ask for confirmation.",
+        )
+        self.rm_parser.add_argument(
+            "--dry",
+            action="store_true",
+            default=False,
+            help="Do a dry run. Does not delete anything.",
+        )
+        self.rm_parser.add_argument(
+            "--before", default=None, help="Clean outputs before this date."
+        )
+        self.rm_parser.add_argument(
+            "--after", default=None, help="Clean outputs after this date."
+        )
+        self.rm_parser.add_argument(
+            "path",
+            nargs="?",
+            default="",
+            help="(Partial) path to search for outputs.",
+        )
+        self.rm_parser.set_defaults(func=self.rm)
+
     def help(self) -> None:
         print("Here is a list with all available actions:", file=sys.stderr)
-        print("   run      Runs a node", file=sys.stderr)
-        print("   list     List all avialbe nodes", file=sys.stderr)
+        print("   run      Runs a node.", file=sys.stderr)
+        print("   list     List all available nodes.", file=sys.stderr)
+        print("   ls       List all available results", file=sys.stderr)
+        print("   rm       Removes runs (local and remote).", file=sys.stderr)
 
     def print_no_action(self) -> None:
         print("Error, no action was given!", file=sys.stderr)
@@ -138,30 +273,26 @@ class MainRunner:
 
         return matched_nodes[0]
 
-    def run(self):
-
+    def _handle_help(self, parser: argparse.ArgumentParser) -> None:
         if self.args.help:
             if self.args.node_name == "":
-                self.run_parser.print_help()
+                parser.print_help()
                 sys.exit()
             else:
                 # print the help message of the node
                 self.unknown_args.append("--help")
 
+    def run(self):
+        self._handle_help(self.run_parser)
+
         node_name = self.args.node_name
         node_args = self.argv[self.argv.index(node_name) + 1 :]
-        node_cls = self.get_node(node_name)
+        node_cls: type[Node] = self.get_node(node_name)
 
         with utils.pdb_post_mortem(self.args.pdb):
 
-            if self.env_file is None and self.args.env is None:
-                env_file = env.find_enviroment_file(
-                    env.infer_project_dir(self.package)
-                )
-            elif self.env_file is None and self.args.env is not None:
-                env_file = self.args.env
-            else:
-                env_file = self.env_file
+            env_file = self.args.env or self.env_file
+            assert env_file is not None
 
             # if config is set and
 
@@ -181,11 +312,11 @@ class MainRunner:
                         f"Arguments: {self.unknown_args}\n"
                     )
                 node_args = anyconfig.load(self.args.config)
-                created_node: Node[ARGS, T] = node_mod.create_node(
+                created_node: Node = node_mod.create_node(
                     node_cls, node_args, env_file
                 )
             else:
-                created_node: Node[ARGS, T] = node_mod.create_node(
+                created_node = node_mod.create_node(
                     node_cls, node_args, env_file
                 )
             created_node.register_pre_run_hook(
@@ -199,7 +330,7 @@ class MainRunner:
             )
         return created_node, result
 
-    def list(self):
+    def list_nodes(self):
         cls_names = [
             f"{cls.__module__}.{cls.__qualname__}" for cls in self.nodes
         ]
@@ -215,12 +346,115 @@ class MainRunner:
         print(f"     python -m <your_package> run {cls_names[-1]} --help")
         sys.exit(0)
 
+    def _ls_runs(
+        self,
+        storage: io.Storage,
+        absolute: bool = False,
+        local: bool = False,
+    ) -> Iterator[tuple[Path, list[Path]]]:
+
+        if self.args.before is not None:
+            before = utils.parse_time(self.args.before)
+        else:
+            before = None
+
+        if self.args.after is not None:
+            after = utils.parse_time(self.args.after)
+        else:
+            after = None
+
+        yield from storage.find_runs(
+            self.args.path,
+            remote=not local,
+            only_failed=self.args.failed,
+            only_completed=getattr(self.args, "completed", False),
+            absolute=absolute,
+            before=before,
+            after=after,
+        )
+
+    def download(self):
+        storage = io.get_storage(self.env_file)
+        storage.download(self.args.key[0])
+
+    def upload(self):
+        storage = io.get_storage(self.env_file)
+        storage.upload(self.args.key[0])
+
+    def ls(self):
+        storage = io.get_storage(self.env_file)
+        for run, paths in self._ls_runs(
+            storage, self.args.absolute, self.args.local
+        ):
+            if self.args.all:
+                for path in paths:
+                    print(str(path))
+            else:
+                print(str(run))
+
+    def rm(self):
+        storage = io.get_storage(self.env_file)
+
+        if self.args.force:
+            for run, _ in self._ls_runs(storage):
+                storage.remove(run, local=True, remote=not self.args.local)
+            return
+
+        if self.args.local:
+            local_tag = "LOCAL"
+        else:
+            local_tag = "both LOCAL and REMOTE"
+
+        print(f"Would delete the following runs from {local_tag}:")
+        print()
+        n_runs = 0
+        n_files = 0
+        runs = []
+        for run, files in self._ls_runs(storage):
+
+            if self.args.local and not (storage / run).exists():
+                continue
+            print(str(run))
+            n_runs += 1
+            n_files += len(files)
+            runs.append(run)
+
+        if n_runs == 0:
+            print("No matching runs found.")
+            return
+
+        print()
+        print(f"Would delete {n_runs} runs with {n_files} files.")
+        if self.args.dry:
+            return
+
+        print()
+        print(
+            f"Are you sure you want to DELETE these runs ({local_tag})? (y/n)",
+            end="",
+        )
+        answer = input().lower()
+        print("")
+        if answer != "y":
+            print("Aborting.")
+            return
+
+        for run in runs:
+            print(storage.remove.__code__)
+            storage.remove(run, local=True, remote=not self.args.local)
+
     def __call__(self) -> Optional[tuple[Node[ARGS, T], T]]:
         if not self.argv or self.argv[0] in ["-h", "help", "--help"]:
             self.help()
             return None
 
-        self.args, self.unknown_args = self.parser.parse_known_args(self.argv)
+        if self.argv[0] == "run":
+            self.args, self.unknown_args = self.parser.parse_known_args(
+                self.argv
+            )
+        else:
+            self.args = self.parser.parse_args(self.argv)
+            self.unknown_args = []
         return self.args.func()
 
 

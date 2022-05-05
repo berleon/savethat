@@ -8,8 +8,9 @@ import importlib
 import pdb
 import pkgutil
 import sys
+import time
 import traceback
-from datetime import datetime
+from datetime import datetime, timezone
 from types import ModuleType
 from typing import Any, Callable, Iterator, Optional, TypeVar
 
@@ -51,9 +52,7 @@ def import_submodules(
     """Import all submodules of a module, recursively, including subpackages."""
     package = importlib.import_module(package_name)
     results = {}
-    for loader, name, is_pkg in pkgutil.walk_packages(
-        package.__path__  # type:ignore
-    ):
+    for loader, name, is_pkg in pkgutil.walk_packages(package.__path__):
         if name == "__main__":
             continue
         try:
@@ -76,3 +75,19 @@ def isoformat_now(clear_microseconds: bool = True) -> str:
     if clear_microseconds:
         date = date.replace(microsecond=0)
     return date.isoformat()
+
+
+def parse_time(date_str: str) -> datetime:
+    if date_str.endswith("Z"):
+        date_str = date_str[:-1]
+
+    if "T" not in date_str:
+        date_str += "T00:00:00"
+    if "+" not in date_str:
+        date_str += "+00:00"
+
+    try:
+        return datetime.fromisoformat(date_str)
+    except ValueError:
+        parsed_time = time.strptime(date_str, "%Y-%m-%dT%H-%M-%S%z")
+        return datetime(*(parsed_time[0:6]), tzinfo=timezone.utc)

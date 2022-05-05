@@ -35,13 +35,16 @@ class Print(node_mod.Node[PrintArgs, None]):
 
 def test_run_node(storage: io.Storage, env: dict[str, Any]) -> None:
     args = SampleIntArgs(max=10)
-    storage.remove("test_sample_int", remote=True)
-    node = SampleInt("test_sample_int", storage, args, env)
-    assert node.run() <= 10
+    # storage.remove("test_sample_int", remote=True)
 
-    files = [
-        str(file).lstrip("/") for file in storage.remote_ls("test_sample_int")
-    ]
+    node = SampleInt("test_sample_int", storage, args, env)
+    result = node.run()
+    assert result <= 10
+
+    assert isinstance(storage, io.B2Storage)
+    print("remote files", list(storage.bucket.ls()))
+
+    files = [str(file) for file in storage.remote_ls("test_sample_int")]
 
     assert "test_sample_int/result.txt" in files
 

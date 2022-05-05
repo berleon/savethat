@@ -167,7 +167,11 @@ class Node(Generic[ARGS, T], metaclass=abc.ABCMeta):
             args_file = str(self.output_dir / "args.json")
             self.args.save(args_file)
             self.logger.info(f"Saving arguments to: {args_file}")
+            with open(self.output_dir / "node.json", "w") as f:
+                json.dump(self._node_info(), f, indent=2)
+            self.reproducible.export_json(self.output_dir / "reproducible.json")
 
+            self.storage.upload(self.key)
             result = self._run()
 
             pickle_file = self.output_dir / "results.pickle"
@@ -179,14 +183,7 @@ class Node(Generic[ARGS, T], metaclass=abc.ABCMeta):
                 hook(self, result)
             return result
         finally:
-            try:
-                with open(self.output_dir / "node.json", "w") as f:
-                    json.dump(self._node_info(), f, indent=2)
-                self.reproducible.export_json(
-                    self.output_dir / "reproducible.json"
-                )
-            finally:
-                self.storage.upload(self.key)
+            self.storage.upload(self.key)
 
     @abc.abstractmethod
     def _run(self) -> T:
