@@ -102,7 +102,7 @@ class Args:
             kwargs[argname] = getattr(parsed_args, argname)
 
         try:
-            obj = cls(**kwargs)  # type: ignore
+            obj = cls(**kwargs)
         except TypeError as e:
             e.args = e.args + (
                 "Maybe you forgot to add @dataclasses.dataclass"
@@ -117,7 +117,7 @@ class Args:
         cls: type[ARGS],
         path: Union[Path, str, None] = None,
         json_str: Optional[str] = None,
-    ):
+    ) -> ARGS:
         if path is not None:
             path = Path(path)
             with path.open() as f:
@@ -147,7 +147,7 @@ class Args:
             if argname in ["_args_parser"]:
                 continue
             kwargs[argname] = getattr(args_parser, argname)
-        return cls(**kwargs)  # type: ignore
+        return cls(**kwargs)
 
     def process_args(self) -> None:
         pass

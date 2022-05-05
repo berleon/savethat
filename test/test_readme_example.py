@@ -2,7 +2,7 @@ import subprocess
 from pathlib import Path
 
 
-def test_main(tmp_path: Path, env_file: Path):
+def test_main(tmp_path: Path, env_file: Path) -> None:
     commands = [
         (
             f"python -m test.test_package.my_package run --env {env_file} "

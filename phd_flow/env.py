@@ -17,7 +17,7 @@ _project_dir: Optional[Path] = None
 _enviroment_file: Optional[Path] = None
 
 
-def set_project_dir(path: Path):
+def set_project_dir(path: Path) -> None:
     logger.info(f"Set project dir: {path}.", project_dir=path)
     global _project_dir
     _project_dir = path

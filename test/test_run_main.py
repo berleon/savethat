@@ -16,7 +16,7 @@ class ConfigTest(node_mod.Node[ConfigTestArgs, str]):
         return self.args.config
 
 
-def test_run_main(env_file: Path):
+def test_run_main(env_file: Path) -> None:
     result = cast(
         Optional[tuple[ConfigTest, str]],
         run_main(

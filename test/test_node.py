@@ -33,7 +33,7 @@ class Print(node_mod.Node[PrintArgs, None]):
             print(f.read())
 
 
-def test_run_node(storage: io.Storage, env: dict[str, Any]):
+def test_run_node(storage: io.Storage, env: dict[str, Any]) -> None:
     args = SampleIntArgs(max=10)
     storage.remove("test_sample_int", remote=True)
     node = SampleInt("test_sample_int", storage, args, env)
@@ -46,7 +46,7 @@ def test_run_node(storage: io.Storage, env: dict[str, Any]):
     assert "test_sample_int/result.txt" in files
 
 
-def test_run_pipeline(storage: io.Storage, env: dict[str, Any]):
+def test_run_pipeline(storage: io.Storage, env: dict[str, Any]) -> None:
     pipeline = node_mod.join(
         SampleInt,
         Print,
