@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import datetime
 import inspect
 import sys
 from pathlib import Path
@@ -228,10 +229,16 @@ class MainRunner:
             help="Do a dry run. Does not delete anything.",
         )
         self.rm_parser.add_argument(
-            "--before", default=None, help="Clean outputs before this date."
+            "--last",
+            default=None,
+            help="Remove runs in the last minutes / hours / days, "
+            "e.g. '1h' or '1d'. If no unit is specified, minutes are assumed.",
         )
         self.rm_parser.add_argument(
-            "--after", default=None, help="Clean outputs after this date."
+            "--before", default=None, help="Remove runs before this date."
+        )
+        self.rm_parser.add_argument(
+            "--after", default=None, help="Remove runs after this date."
         )
         self.rm_parser.add_argument(
             "path",
@@ -358,7 +365,29 @@ class MainRunner:
         else:
             before = None
 
-        if self.args.after is not None:
+        last = getattr(self.args, "last")
+        if last and self.args.after is not None:
+            raise ValueError("Cannot use both --last and --after")
+        if last is not None:
+            unit = "m"
+            if last[-1].lower() in "mhd":
+                unit = last[-1].lower()
+            if last[-1].lower() in "mhd":
+                value = int(last[:-1])
+            else:
+                value = int(last)
+
+            offset = {
+                "m": datetime.timedelta(
+                    minutes=value,
+                ),
+                "h": datetime.timedelta(hours=value),
+                "d": datetime.timedelta(days=value),
+            }[unit]
+            after = datetime.datetime.now(datetime.timezone.utc) - offset
+            d = after
+            assert d.tzinfo is not None and d.tzinfo.utcoffset(d) is not None
+        elif self.args.after is not None:
             after = utils.parse_time(self.args.after)
         else:
             after = None
@@ -430,7 +459,7 @@ class MainRunner:
 
         print()
         print(
-            f"Are you sure you want to DELETE these runs ({local_tag})? (y/n)",
+            f"Are you sure you want to DELETE these runs ({local_tag})? (y/n) ",
             end="",
         )
         answer = input().lower()
