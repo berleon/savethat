@@ -3,6 +3,7 @@ from __future__ import annotations
 import abc
 import contextlib
 import dataclasses
+import json
 import os
 import shutil
 import sys
@@ -13,6 +14,7 @@ from pathlib import Path
 from typing import IO, Any, Iterable, Iterator, Optional, TypeVar, Union, cast
 
 import b2sdk.v2 as b2_api
+import pandas as pd
 from loguru import logger
 
 from phd_flow import env as env_mod
@@ -99,9 +101,58 @@ class Storage(metaclass=abc.ABCMeta):
         return runs
 
     @staticmethod
-    def _get_datetime_from_run(run: str) -> datetime:
-        date_str = run.split("_")[-1]
+    def get_date_of_run(run: PATH_LIKE) -> datetime:
+        """Returns the date of the run."""
+        date_str = str(run).split("_")[-1]
         return utils.parse_time(date_str)
+
+    def find_runs_as_df(
+        self,
+        path: PATH_LIKE,
+        remote: bool = True,
+        only_failed: bool = False,
+        only_completed: bool = False,
+        absolute: bool = False,
+        before: Optional[datetime] = None,
+        after: Optional[datetime] = None,
+    ) -> Union[Iterator[tuple[Path, list[Path]]], pd.DataFrame]:
+        """Finds all runs in `path` and returns them as a DataFrame.
+
+        Args:
+            path: the path to search for runs.
+            remote: if true, search the remote storage.
+            only_failed: if true, only return runs that failed.
+            only_completed: if true, only return runs that completed.
+            absolute: if true, return the absolute path of the run.
+            before: only return runs before this date.
+            after: only return runs after this date.
+
+        Returns:
+            A DataFrame with the runs information.
+        """
+
+        data = []
+        for run, run_files in self.find_runs(
+            path,
+            remote=remote,
+            only_failed=only_failed,
+            only_completed=only_completed,
+            absolute=absolute,
+            before=before,
+            after=after,
+        ):
+            with open(self / run / "args.json") as f:
+                args = json.load(f)
+
+            run_info = {
+                "key": str(run),
+                "date": self.get_date_of_run(run),
+                "completed": run / "results.pickle" in run_files,
+                "files": [str(f) for f in run_files],
+            }
+            run_info.update(args)
+            data.append(run_info)
+        return pd.DataFrame(data)
 
     def find_runs(
         self,
@@ -113,6 +164,22 @@ class Storage(metaclass=abc.ABCMeta):
         before: Optional[datetime] = None,
         after: Optional[datetime] = None,
     ) -> Iterator[tuple[Path, list[Path]]]:
+        """Finds all runs in `path`.
+
+        Args:
+            path: the path to search for runs.
+            remote: if true, search the remote storage.
+            only_failed: if true, only return runs that failed.
+            only_completed: if true, only return runs that completed.
+            absolute: if true, return the absolute path of the run.
+            before: only return runs before this date.
+            after: only return runs after this date.
+
+        Returns:
+            A generator of tuples of the form (run, files) where `run` is the
+            run path and `files` is a list of files in that run.
+        """
+
         # It looks inefficient too loop over all files, but b2 actually
         # does loop over all files anyway.
 
@@ -141,7 +208,7 @@ class Storage(metaclass=abc.ABCMeta):
                 continue
 
             if before is not None or after is not None:
-                date = self._get_datetime_from_run(str(run))
+                date = self.get_date_of_run(str(run))
                 if before is not None and date > before:
                     continue
                 if after is not None and date < after:
