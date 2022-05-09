@@ -1,14 +1,22 @@
-# phd_flow -- MLOps for busy PhDs
+# savethat
 
-A library to get at least some ordering into a ML PhD.
-This library provides many useful things:
+This library to provide a straightforward way to save your ML experiments.
+I wish I would have written this library before my PhD and not at the end.
+`savethat` is specifically adressed for PhD students: limited budget, various compute
+infrastructure (SLURM, servers), no time to spend on setup.
 
-* Reproducable experiments
-* Store results on Backblaze B2
-* Logging
+This library provides the followng things:
 
+* an API to create nodes executable from CLI
+* Reproducable experiments by [reproducible]()
+* Each node has an unique output directory which is synced to (Backblaze B2)[]
+* A CLI to administer the remote storage
+* Logging by (loguru)[]
 
-# Examples
+The main goal is to provide the necessary infrastructure to write reproducible
+research code. `mlops_for_research` is agnostic to your preferred DL framework.
+
+# Example
 
 This simple example shows how to use `phd_flow` for fitting an OLS.
 This would go into `my_project/fit_ols.py`:
@@ -116,7 +124,7 @@ For now use:
 $ pip install git+https://github.com/berleon/phd_flow.git
 ```
 
-# Concepts
+# Overview
 
 ## Storage
 

@@ -23,4 +23,4 @@ mkdir -p "$BUILDROOT"
 
 python ./scripts/run_pdoc.py -d google \
       --output-dir "$BUILDROOT" \
-      phd_flow
+      savethat

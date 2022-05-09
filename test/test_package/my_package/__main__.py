@@ -1,7 +1,7 @@
 import coverage
 
-import phd_flow
+import savethat
 
 # ensures coverage is also collected for subprocesses
 coverage.process_startup()
-phd_flow.run_main("test.test_package.my_package")
+savethat.run_main("test.test_package.my_package")

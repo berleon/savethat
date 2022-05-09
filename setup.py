@@ -6,13 +6,13 @@ from distutils.core import setup
 import setuptools  # noqa
 
 setup(
-    name="phd_flow",
+    name="savethat",
     version="0.1",
     author="Leon Sixt",
     author_email="",
-    packages=["phd_flow"],
+    packages=["savethat"],
     package_data={
-        "phd_flow": ["py.typed"],
+        "savethat": ["py.typed"],
     },
     install_requires=[
         "anyconfig",

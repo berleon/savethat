@@ -3,8 +3,8 @@ from typing import Any
 
 import pytest
 
-import phd_flow
-from phd_flow import io
+import savethat
+from savethat import io
 
 
 @pytest.fixture
@@ -28,5 +28,5 @@ def env_file() -> Path:
 
 @pytest.fixture
 def env(env_file: Path) -> dict[str, Any]:
-    phd_flow.set_project_dir(Path(__file__).parent.parent)
-    return phd_flow.env.read_env_file(env_file)
+    savethat.set_project_dir(Path(__file__).parent.parent)
+    return savethat.env.read_env_file(env_file)

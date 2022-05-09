@@ -24,7 +24,7 @@ exclude = '''
 # profile = 'black'
 
 [tool.pytest.ini_options]
-addopts = "--cov=phd_flow --cov-report html"
+addopts = "--cov=savethat --cov-report html"
 testpaths = ['test']
 filterwarnings = [
     'ignore:.*Create unlinked descriptors is going to go away.*:DeprecationWarning',

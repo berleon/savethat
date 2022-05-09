@@ -11,4 +11,4 @@ function fail {
 }
 
 
-MODULE_NAME="phd_flow"
+MODULE_NAME="savethat"

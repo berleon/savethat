@@ -9,7 +9,7 @@ import sklearn.linear_model
 from sklearn.metrics import mean_squared_error
 from sklearn.model_selection import train_test_split
 
-from phd_flow import logger, node
+from savethat import logger, node
 
 
 @dataclasses.dataclass(frozen=True)
@@ -33,7 +33,7 @@ class FitOLS(node.Node[FitOLSArgs, FitOLSResult]):
         X = df[train_keys].to_numpy()
         y = df[self.args.target].to_numpy()
 
-        # A logger is preconfigured. Just `from phd_flow import logger`
+        # A logger is preconfigured. Just `from savethat import logger`
         logger.info(f"Got {len(X)} samples.")
         X_train, X_test, y_train, y_test = train_test_split(X, y)
 

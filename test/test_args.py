@@ -2,11 +2,11 @@ import dataclasses
 
 import pytest
 
-import phd_flow
+import savethat
 
 
 @dataclasses.dataclass(frozen=True)
-class MyArgs(phd_flow.Args):
+class MyArgs(savethat.Args):
     name: str
     n_times: int
 
@@ -17,7 +17,7 @@ def test_init_of_args():
     assert args_init == args_parsed
 
 
-class NoDataclassArgs(phd_flow.Args):
+class NoDataclassArgs(savethat.Args):
     name: str
     n_times: int
 
