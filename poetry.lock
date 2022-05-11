@@ -1,4 +1,19 @@
 [[package]]
+name = "anyconfig"
+version = "0.13.0"
+description = "Library provides common APIs to load and dump configuration files in various formats"
+category = "main"
+optional = false
+python-versions = "*"
+
+[package.extras]
+query = ["jmespath"]
+schema = ["jsonschema"]
+template = ["jinja2"]
+toml = ["toml"]
+yaml = ["pyyaml"]
+
+[[package]]
 name = "arrow"
 version = "1.2.2"
 description = "Better dates & times for Python"
@@ -1365,9 +1380,13 @@ doc = []
 [metadata]
 lock-version = "1.1"
 python-versions = ">=3.9,<4.0"
-content-hash = "333f1ce0ef61d7f3f5d6845705dffbfcfe2e8b10f858313732ac073538fcc73a"
+content-hash = "a4013201c107236aaf72d6127e7f2331927f49a820427f8139577d61cc86acb7"
 
 [metadata.files]
+anyconfig = [
+    {file = "anyconfig-0.13.0-py2.py3-none-any.whl", hash = "sha256:17cb189938d6cda4d21a2dabcd63db86658d2556e767dfd4835b1011544a1f8e"},
+    {file = "anyconfig-0.13.0.tar.gz", hash = "sha256:03ff2e1762af388fbbbed1c1ab7f9f1ec006a91da7db3a68b963da6e7795d2ac"},
+]
 arrow = [
     {file = "arrow-1.2.2-py3-none-any.whl", hash = "sha256:d622c46ca681b5b3e3574fcb60a04e5cc81b9625112d5fb2b44220c36c892177"},
     {file = "arrow-1.2.2.tar.gz", hash = "sha256:05caf1fd3d9a11a1135b2b6f09887421153b94558e5ef4d090b567b47173ac2b"},

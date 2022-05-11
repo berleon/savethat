@@ -26,6 +26,7 @@ reproducible = "^0.4.1"
 loguru = "^0.6.0"
 b2 = "^3.4.0"
 typed-argument-parser = "^1.7.2"
+anyconfig = "^0.13.0"
 
 [tool.poetry.extras]
 doc = [
