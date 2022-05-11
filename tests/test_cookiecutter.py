@@ -1,3 +1,4 @@
+import getpass
 import os
 import subprocess
 from pathlib import Path
@@ -13,9 +14,9 @@ def template_dir(tmp_path: Path) -> Path:
     number = pytest_number.split("-")[-1]
 
     tmp = Path(os.getenv("TMPDIR", "/tmp"))
-    return (
-        tmp / f"savethat-cookiecutter-of-{os.getlogin()}" / f"template-{number}"
-    )
+
+    user = getpass.getuser()
+    return tmp / f"savethat-cookiecutter-of-{user}" / f"template-{number}"
 
 
 def test_cookie_template(template_dir: Path) -> None:

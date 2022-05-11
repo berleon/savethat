@@ -51,11 +51,6 @@ python -m test_template run test_template.fit_ols.FitOLS \
      --target MedHouseVal
 
 
-# run the tests
+# run the tests & build docs
 make test
-
-# undo adding $savethat_repo ...
-git checkout poetry.lock pyproject.toml
-git status
-# ... as the build does not allow local dependencies
-tox -e build
+mkdocs build
