@@ -54,6 +54,7 @@ mkdocstrings = "^0.18.1"
 mkdocs-autorefs = "^0.4.1"
 twine = "^4.0.0"
 types-toml = "^0.10.7"
+pytest-cov = "^3.0.0"
 
 [build-system]
 build-backend = "poetry.core.masonry.api"
