@@ -11,7 +11,7 @@ repos:
     -   id: trailing-whitespace
     -   id: requirements-txt-fixer
   - repo: https://github.com/asottile/pyupgrade
-    rev: v2.32.0
+    rev: v2.32.1
     hooks:
     -   id: pyupgrade
         args: [--py39-plus, --keep-runtime-typing]
@@ -20,9 +20,6 @@ repos:
     hooks:
     -   id: isort
         args: ["--verbose"]
-        #   "--profile", "black",
-        #   "--src_paths", "mh"
-        # ]
   - repo: https://github.com/psf/black
     rev: 22.3.0
     hooks:
@@ -31,7 +28,7 @@ repos:
           "--config", "./pyproject.toml",
         ]
         language_version: python3
-  - repo: https://github.com/kynan/nbstripout
-    rev: 0.5.0
+  - repo: https://github.com/pycqa/flake8
+    rev: 4.0.1
     hooks:
-      - id: nbstripout
+      - id: flake8

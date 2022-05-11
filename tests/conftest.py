@@ -23,7 +23,7 @@ def storage(tmp_path: Path) -> io.B2Storage:
 @pytest.fixture
 def env_file() -> Path:
     test_dir = Path(__file__).parent
-    return test_dir / "test_package" / "env" / "default.toml"
+    return test_dir / "test_env.toml"
 
 
 @pytest.fixture

@@ -24,7 +24,7 @@ def test_run_main(env_file: Path) -> None:
             env_file=env_file,
             argv=[
                 "run",
-                "test.test_run_main.ConfigTest",
+                "tests.test_run_main.ConfigTest",
                 "--config",
                 "my_config_file",
             ],
