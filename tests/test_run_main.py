@@ -1,4 +1,5 @@
 import dataclasses
+import sys
 from pathlib import Path
 from typing import Optional, cast
 
@@ -17,14 +18,17 @@ class ConfigTest(node_mod.Node[ConfigTestArgs, str]):
 
 
 def test_run_main(env_file: Path) -> None:
+    test_dir = Path(__file__).parent.absolute()
+    print(f"Appending path: {test_dir}")
+    sys.path.append(str(test_dir))
     result = cast(
         Optional[tuple[ConfigTest, str]],
         run_main(
-            "test",
+            "test_run_main",
             env_file=env_file,
             argv=[
                 "run",
-                "tests.test_run_main.ConfigTest",
+                "test_run_main.ConfigTest",
                 "--config",
                 "my_config_file",
             ],

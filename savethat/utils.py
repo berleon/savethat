@@ -12,7 +12,7 @@ import time
 import traceback
 from datetime import datetime, timezone
 from types import ModuleType
-from typing import Any, Callable, Iterator, Optional, TypeVar
+from typing import Any, Callable, Iterator, Optional, TypeVar, cast
 
 T = TypeVar("T")
 
@@ -52,7 +52,15 @@ def import_submodules(
     """Import all submodules of a module, recursively, including subpackages."""
     package = importlib.import_module(package_name)
     results = {}
-    for loader, name, is_pkg in pkgutil.walk_packages(package.__path__):
+
+    if hasattr(package, "__path__"):
+        package_files = package.__path__
+    elif getattr(package, "__file__") is not None:
+        package_files = [cast(str, package.__file__)]
+    else:
+        raise ValueError(f"Cannot find file for package: {package}")
+
+    for loader, name, is_pkg in pkgutil.walk_packages(package_files):
         if name == "__main__":
             continue
         try:
@@ -61,6 +69,9 @@ def import_submodules(
             if recursive and is_pkg:
                 results.update(import_submodules(full_name))
         except ModuleNotFoundError:
+            if not ignore_errors:
+                raise
+        except ValueError:
             if not ignore_errors:
                 raise
     return results
