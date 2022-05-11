@@ -130,6 +130,8 @@ module = [
     "b2sdk.*",
     "b2sdk.v2",
     "coverage",
+    "cookiecutter",
+    "cookiecutter.*",
     "cpuinfo",
     "matplotlib",
     "pandas",
