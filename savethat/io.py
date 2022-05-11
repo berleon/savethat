@@ -14,7 +14,6 @@ from pathlib import Path
 from typing import IO, Any, Iterable, Iterator, Optional, TypeVar, Union, cast
 
 import b2sdk.v2 as b2_api
-import pandas as pd
 from loguru import logger
 
 from savethat import env as env_mod
@@ -115,7 +114,7 @@ class Storage(metaclass=abc.ABCMeta):
         absolute: bool = False,
         before: Optional[datetime] = None,
         after: Optional[datetime] = None,
-    ) -> Union[Iterator[tuple[Path, list[Path]]], pd.DataFrame]:
+    ) -> Union[Iterator[tuple[Path, list[Path]]], list[dict[str, Any]]]:
         """Finds all runs in `path` and returns them as a DataFrame.
 
         Args:
@@ -128,10 +127,11 @@ class Storage(metaclass=abc.ABCMeta):
             after: only return runs after this date.
 
         Returns:
-            A DataFrame with the runs information.
+            A list of dictionaries with the run's key, date, status,
+            and arguments.
         """
 
-        data = []
+        run_infos = []
         for run, run_files in self.find_runs(
             path,
             remote=remote,
@@ -145,14 +145,14 @@ class Storage(metaclass=abc.ABCMeta):
                 args = json.load(f)
 
             run_info = {
-                "key": str(run),
-                "date": self.get_date_of_run(run),
-                "completed": run / "results.pickle" in run_files,
-                "files": [str(f) for f in run_files],
+                "run_key": str(run),
+                "run_date": self.get_date_of_run(run),
+                "run_completed": run / "results.pickle" in run_files,
+                "run_files": [str(f) for f in run_files],
             }
             run_info.update(args)
-            data.append(run_info)
-        return pd.DataFrame(data)
+            run_infos.append(run_info)
+        return run_infos
 
     def find_runs(
         self,
