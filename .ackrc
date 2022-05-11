@@ -16,10 +16,12 @@
 
 ### Directories to ignore
 --ignore-directory=match:/\.mypy.*/
+--ignore-directory=match:/\.tox.*/
 --ignore-directory=is:htmlcov
---ignore-directory=is:docs
---ignore-directory=is:test/data/
-
+--ignore-directory=is:site
+--ignore-directory=is:data
+--ignore-directory=is:tests/data/
+--ignore-file=is:coverage.xml
 
 # Git
 # https://git-scm.com/
