@@ -163,6 +163,7 @@ class Node(Generic[ARGS, T], metaclass=abc.ABCMeta):
                 node=self.name,
                 key=str(self.key),
                 output_dir=str(self.output_dir),
+                args=self.args,
             )
             args_file = str(self.output_dir / "args.json")
             self.args.save(args_file)
