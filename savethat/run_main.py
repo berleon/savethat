@@ -254,8 +254,8 @@ class MainRunner:
     def help(self) -> None:
         print("Here is a list with all available actions:", file=sys.stderr)
         print("   run      Runs a node.", file=sys.stderr)
-        print("   list     List all available nodes.", file=sys.stderr)
-        print("   ls       List all available results", file=sys.stderr)
+        print("   nodes    List all available nodes.", file=sys.stderr)
+        print("   ls       List past runs.", file=sys.stderr)
         print("   rm       Removes runs (local and remote).", file=sys.stderr)
 
     def print_no_action(self) -> None:
@@ -359,7 +359,7 @@ class MainRunner:
 
         print("")
         print("For more information on each analysis execute:")
-        print(f"     python -m <your_package> run {cls_names[-1]} --help")
+        print(f"     python -m {self.package} run {cls_names[-1]} --help")
 
     def _ls_runs(
         self,
