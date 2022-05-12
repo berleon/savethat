@@ -269,6 +269,10 @@ class B2Storage(Storage):
     @classmethod
     def from_env(cls: type[STORAGE], env: dict[str, Any]) -> STORAGE:
         if env.get("use_b2_simulation", False):
+            logger.info(
+                "Warning! You are using the B2 simulation. "
+                "Files will not be upload!"
+            )
             fake_api = SimulatedB2API()
             bucket = fake_api.bucket
             b2_bucket = fake_api.bucket_name
@@ -281,6 +285,9 @@ class B2Storage(Storage):
                 str, env.get("b2_bucket") or os.environ.get("B2_BUCKET")
             )
             bucket = None
+            logger.info(f"Using B2 bucket {b2_bucket}")
+
+        logger.info(f"Files will be stored locally at {env['local_path']} ")
 
         assert isinstance(b2_key, str)
         assert isinstance(b2_key_id, str)
