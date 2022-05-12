@@ -2,6 +2,7 @@ data/
 test/data
 test/test_package/data
 .DS_Store
+.vscode
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
