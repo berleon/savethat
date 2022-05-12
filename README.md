@@ -2,91 +2,37 @@
 
 This library to provide a straightforward way to save your ML experiments.
 I wish I would have written this library before my PhD and not at the end.
-`savethat` is specifically adressed for PhD students: limited budget, various compute
-infrastructure (SLURM, servers), no time to spend on setup.
+`savethat` is specifically addressed for PhD students: limited budget, various compute
+infrastructure (SLURM, servers), little time to spend on setup.
 
-This library provides the followng things:
+This library provides the following things:
 
 * an API to create nodes executable from CLI
 * Reproducable experiments by [reproducible]()
 * Each node has an unique output directory which is synced to (Backblaze B2)[]
 * A CLI to administer the remote storage
-* Logging by (loguru)[]
+* Logging by [loguru]()
 
 The main goal is to provide the necessary infrastructure to write reproducible
-research code. `mlops_for_research` is agnostic to your preferred DL framework.
+research code. You can use this library with any DL framework.
 
-# Example
+## Template Setup
 
-This simple example shows how to use `phd_flow` for fitting an OLS.
-This would go into `my_project/fit_ols.py`:
+The recommended way to use `savethat` is to use the [cookiecutter template](https://github.com/berleon/savethat_cookiecutter). The template creates a new project with pre-configured tools such as flake8, pytest, tox, mypy, Github Actions.
 
-```python
-import dataclasses
-import pickle
-from typing import Any
-
-import pandas as pd
-import sklearn
-import sklearn.datasets
-import sklearn.linear_model
-from sklearn.metrics import mean_squared_error
-from sklearn.model_selection import train_test_split
-
-from phd_flow import logger, node
-
-
-@dataclasses.dataclass(frozen=True)
-class FitOLSArgs(node.Args):
-    dataset: str  # path to csv dataset
-    target: str  # column name of the target
-
-
-@dataclasses.dataclass
-class FitOLSResult:
-    mse: float
-    params: dict[str, Any]
-
-
-class FitOLS(node.Node[FitOLSArgs, FitOLSResult]):
-    def _run(self) -> FitOLSResult:
-        # Loading the data from storage
-        df = pd.read_csv(self.args.dataset)
-        # You can access any argument from `FitOLSArgs` with `self.args`
-        train_keys = [k for k in df.keys() if k != self.args.target]
-        X = df[train_keys].to_numpy()
-        y = df[self.args.target].to_numpy()
-
-        # A logger is preconfigured. Just `from phd_flow import logger`
-        logger.info(f"Got {len(X)} samples.")
-        X_train, X_test, y_train, y_test = train_test_split(X, y)
-
-        # let's upload the dataset to the cloud
-        dataset_key = "datasets" / self.key / "datasets.pickle"
-        with self.storage.open(dataset_key, "wb") as f:
-            pickle.dump((X_train, X_test, y_train, y_test), f)
-        # the actual uploading
-        self.storage.upload("datasets" / self.key)
-
-        ols = sklearn.linear_model.LinearRegression()
-        ols.fit(X_train, y_train)
-
-        mse = mean_squared_error(y_test, ols.predict(X_test))
-        logger.info(f"Mean squared error of {mse}")
-        return FitOLSResult(mse, ols.get_params())
-        # the results will be stored to `self.key / results.pickle`
-```
-Now, we make it runable by adding `my_project/__main__.py`:
-
-```python
-import phd_flow
-
-phd_flow.run_main('my_project')
+```bash
+$ project='my_project'
+$ mkdir -p $project && cd $project
+$ python3 -m venv venv && source venv/bin/activate
+$ pip install -U pip wheel setuptools cookiecutter poetry
+$ cookiecutter https://github.com/berleon/savethat_cookiecutter
 ```
 
+See this **[Tutorial]** for a complete description of the setup process.
 
-Finally, you have to create a configuration file (`config/default.toml`):
+## Manual Setup
 
+First, create a config file with the B2 credentials:
 ```toml
 # the data will be stored at this location
 local_path="${PROJECT_ROOT}/data_storage"
@@ -99,57 +45,123 @@ b2_bucket="my-b2-bucket"
 # prefix for this project
 b2_prefix="my_project"
 ```
-
-You can now execute the node with:
-```sh
-$ python -m my_project run FitOLS --dataset california.csv --target MedHouseVal
-# Possible Output:
-2022-02-01 16:13:04.180 | INFO     | phd_flow.io:from_file:127 - Loading config from file: test/config/default.toml
-2022-02-01 16:13:04.192 | INFO     | phd_flow.log:setup_logger:34 - Use logger output_dir: test/data/FitOLS_2022-02-01T15:13:04.181832 - {}
-2022-02-01 16:13:04.192 | INFO     | phd_flow.node:run:99 - Run Node - {'node': 'FitOLS', 'key': 'FitOLS_2022-02-01T15:13:04.181832', 'output_dir': test/data/FitOLS_2022-02-01T15:13:04.181832'}
-```
-
-A unique `key` is generated for each run. The default uses the time. The
-returned value will be saved to `{key} / results.pickle`. After the run the
-whole content of `{local_path}/{key}` will be uploaded to B2. `phd_flow` will
-save the comandline arguments (`args.json`) and the logs  (`output.log`,
-`output.json`).
-
-
-# Install
-
-For now use:
-
-```sh
-$ pip install git+https://github.com/berleon/phd_flow.git
-```
-
-# Overview
-
-## Storage
-
-`phd_flow` currently only supports Backblaze B2.
 You can signup at [B2 Cloud Storage](https://www.backblaze.com/b2/docs/quick_account.html).
+
+The next step is to make your project runnable by adding `my_project/__main__.py`:
+
+```python
+from pathlib import Path
+
+import savethat
+
+if __name__ == "__main__":
+    repro_dir = Path(__file__).parent.parent
+
+    savethat.run_main(
+        "my_project",
+        env_file=repro_dir / "savethat.toml",
+    )
+
+```
+Suppose you created a subclass `FitOLS` of `savethat.Node` in the file `my_project/fit_ols.py`,
+then you could list the node:
+```bash
+$ python -m fitols nodes
+Found the following executable nodes:
+    my_project.fit_ols.FitOLS  - [no docstring]
+
+For more information on each analysis execute:
+     python -m my_project run my_project.fit_ols.FitOLS --help
+```
+
+## Overview
+
+### How to run a node?
+
+Simply run:
+```bash
+python -m my_project run my_project.fit_ols.FitOLS --my-args
+```
+
+### What is saved when a Node is run?
+
+The following files are saved as default:
+```
+args.json           # arguments of the node
+output.jsonl        # log of the run in jsonl format
+output.log          # log of the run in text format
+reproducible.json   # reproducibility information
+results.pickle      # results of the run
+```
+
+### How to save more files?
 
 Each node, has a reference to a storage parameter:
 ```
-self.storage.download("datasets/mydataset")
-self.storage.open()
+@dataclasses.dataclass(frozen=True)
+class MyNodeArgs:
+    dataset: str
+
+class MyNode(savethat.Node[MyNodeArgs, str]):
+    def _run(self):
+        self.storage.download(self.args.dataset)
+        with open(self.storage / self.args.dataset / "data.csv") as f:
+            ...
+
+        self.storage.upload(self.args.dataset / "results.csv")
 ```
 
-## Logging
+See the [Storage API Docs] for more information.
 
-`phd_flow` uses [loguru](https://github.com/Delgan/loguru). You can import
-a preconfigured logger using `from phd_flow import logger`. See
+### Logging
+
+`savethat` uses [loguru](https://github.com/Delgan/loguru). You can import
+a preconfigured logger using `from savethat import logger`. See
 [loguru's documentation](https://loguru.readthedocs.io/en/stable/index.html)
 for more details.
 
-# Integration with other loggers
+### How to list past runs?
 
-## wandb
+To list all past runs:
+```
+python -m {{ cookiecutter.pkg_name }} ls
+```
 
-TODO
+You can also select only runs starting with `FitOLS` that were completed
+successfully in the last 3 hours:
+```
+python -m {{ cookiecutter.pkg_name }} ls FitOLS --completed --last 3h
+```
 
-## mlflow
+You can also get the runs information from python:
 
-TODO
+```
+get_storage('savethat.toml').find_runs(
+    'FitOLS',
+    only_completed=True,
+    after=datetime.now(timezone.utc) - timedelta(hours=3),  # all times are in utc
+)
+```
+
+### Delete runs
+
+All failed runs from the last 3 hours can be deleted with:
+
+```
+python -m {{ cookiecutter.pkg_name }} rm FitOLS --failed --last 3h
+```
+The CLI would ask for confirmation before deleting all completed runs in the last 3 hours.
+You can use the `--force` flag to skip the confirmation.
+See `python -m {{ cookiecutter.pkg_name }} rm  --help ` for more information.
+
+
+#### What is missing?
+
+* Chaining nodes is currently not possible really supported.
+* Running nodes in an isolated container is currently not possible.
+* The code is tested on Mac OS X and Linux, but not on Windows.
+
+
+
+[Tutorial]: https://github.com/berleon/savethat_cookiecutter/blob/master/docs/tutorial.md
+[Storage API Docs]: https://berleon.github.io/savethat/savethat/io.html
