@@ -86,13 +86,17 @@ class Storage(metaclass=abc.ABCMeta):
         """
 
     @abc.abstractmethod
-    def ls(self, key: PATH_LIKE) -> Iterator[Path]:
+    def ls(
+        self, key: PATH_LIKE, relative: bool = False, recursive: bool = False
+    ) -> Iterator[Path]:
         pass
 
     @staticmethod
     def _runs_from_paths(paths: Iterable[Path]) -> dict[Path, set[Path]]:
         runs = defaultdict(set)
+
         for path in paths:
+            logger.debug(f"Found path {path}")
             if ".bzEmpty" in str(path):
                 continue
             first_part = Path(path.parts[0])
@@ -192,10 +196,11 @@ class Storage(metaclass=abc.ABCMeta):
         if remote:
             path_gen = iter(self.remote_ls(path, recursive=True))
         else:
-            path_gen = iter(self.ls(path))
+            path_gen = iter(self.ls(path, relative=True, recursive=True))
 
         for run, run_paths in self._runs_from_paths(path_gen).items():
             if run / "args.json" not in run_paths:
+                logger.debug(f"{run} has no args.json")
                 # does not look like a run
                 continue
 
@@ -322,8 +327,19 @@ class B2Storage(Storage):
         yield f
         f.close()
 
-    def ls(self, key: PATH_LIKE) -> Iterator[Path]:
-        yield from (self.local_path / key).iterdir()
+    def ls(
+        self, key: PATH_LIKE, relative: bool = False, recursive: bool = False
+    ) -> Iterator[Path]:
+        if recursive:
+            path_gen = (self.local_path / key).rglob("*")
+        else:
+            path_gen = (self.local_path / key).iterdir()
+
+        for path in path_gen:
+            if relative:
+                yield path.relative_to(self.local_path)
+            else:
+                yield path.absolute()
 
     def remote_ls(
         self, key: PATH_LIKE = "", recursive: bool = False
