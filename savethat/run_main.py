@@ -408,7 +408,7 @@ class MainRunner:
             before=before,
             after=after,
         )
-        yield from storage.find_runs(
+        yield from storage.find_run_files(
             self.args.path,
             remote=not local,
             only_failed=self.args.failed,

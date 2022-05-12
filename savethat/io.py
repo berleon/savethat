@@ -109,7 +109,7 @@ class Storage(metaclass=abc.ABCMeta):
         date_str = str(run).split("_")[-1]
         return utils.parse_time(date_str)
 
-    def find_runs_as_df(
+    def find_runs(
         self,
         path: PATH_LIKE,
         remote: bool = True,
@@ -136,7 +136,7 @@ class Storage(metaclass=abc.ABCMeta):
         """
 
         run_infos = []
-        for run, run_files in self.find_runs(
+        for run, run_files in self._find_runs(
             path,
             remote=remote,
             only_failed=only_failed,
@@ -158,7 +158,7 @@ class Storage(metaclass=abc.ABCMeta):
             run_infos.append(run_info)
         return run_infos
 
-    def find_runs(
+    def find_run_files(
         self,
         path: PATH_LIKE,
         remote: bool = True,
@@ -168,7 +168,7 @@ class Storage(metaclass=abc.ABCMeta):
         before: Optional[datetime] = None,
         after: Optional[datetime] = None,
     ) -> Iterator[tuple[Path, list[Path]]]:
-        """Finds all runs in `path`.
+        """Finds all runs starting with `path`.
 
         Args:
             path: the path to search for runs.
