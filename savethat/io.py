@@ -111,14 +111,14 @@ class Storage(metaclass=abc.ABCMeta):
 
     def find_runs(
         self,
-        path: PATH_LIKE,
+        path: PATH_LIKE = "",
         remote: bool = True,
         only_failed: bool = False,
         only_completed: bool = False,
         absolute: bool = False,
         before: Optional[datetime] = None,
         after: Optional[datetime] = None,
-    ) -> Union[Iterator[tuple[Path, list[Path]]], list[dict[str, Any]]]:
+    ) -> Iterator[dict[str, Any]]:
         """Finds all runs in `path` and returns them as a DataFrame.
 
         Args:
@@ -135,7 +135,6 @@ class Storage(metaclass=abc.ABCMeta):
             and arguments.
         """
 
-        run_infos = []
         for run, run_files in self.find_run_files(
             path,
             remote=remote,
@@ -155,8 +154,7 @@ class Storage(metaclass=abc.ABCMeta):
                 "run_files": [str(f) for f in run_files],
             }
             run_info.update(args)
-            run_infos.append(run_info)
-        return run_infos
+            yield run_info
 
     def find_run_files(
         self,
