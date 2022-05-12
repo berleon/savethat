@@ -8,6 +8,8 @@ nav:
   - Installation: installation.md
   - Usage: usage.md
   - Modules: api.md
+watch:
+  - README.md
 theme:
   name: material
   language: en
