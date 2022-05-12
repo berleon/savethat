@@ -2,11 +2,11 @@ from __future__ import annotations
 
 import getpass
 import importlib
-import os
 import socket
 from pathlib import Path
 from typing import Any, Optional, Union
 
+import anyconfig
 import toml
 from loguru import logger
 
@@ -23,7 +23,12 @@ def set_project_dir(path: Path) -> None:
     _project_dir = path
 
 
-def infer_project_dir(package: Optional[str] = None) -> Path:
+def get_project_dir() -> Path:
+    assert _project_dir is not None
+    return _project_dir
+
+
+def infer_project_dir(package: str) -> Path:
     global _project_dir
     if _project_dir is not None:
         return _project_dir
@@ -32,9 +37,11 @@ def infer_project_dir(package: Optional[str] = None) -> Path:
         module = importlib.import_module(package)
         assert module.__file__ is not None
         file = Path(module.__file__)
-        project_dir = file.parent / ".."
-    else:
-        project_dir = Path(os.curdir)
+        module_dir = file.parent
+        if module_dir.parts[-1] == "src":
+            project_dir = module_dir.parent.parent
+        else:
+            project_dir = module_dir.parent
 
     project_dir = project_dir.resolve()
     if not (
@@ -46,29 +53,21 @@ def infer_project_dir(package: Optional[str] = None) -> Path:
             "look like a python package."
         )
     _project_dir = project_dir
-    logger.info(
-        f"Guessed project_dir to {project_dir}", project_dir=project_dir
-    )
+    logger.info(f"Using {project_dir} as project dir", project_dir=project_dir)
     return project_dir
 
 
-def find_enviroment_file(project_dir: Optional[Path] = None) -> Path:
-    if project_dir is None:
-        project_dir = infer_project_dir()
-
-    if _enviroment_file is not None:
-        return _enviroment_file
-
-    env_dir = project_dir / "env"
-    assert env_dir.exists()
+def load_host_settings(directory: Path, ext: str = "toml") -> dict[str, Any]:
     username = getpass.getuser()
     host = socket.gethostname()
-    env_file = env_dir / f"{username}@{host}.toml"
-    if not env_file.exists():
-        env_file = env_dir / "default.toml"
+    file = directory / f"{username}@{host}.{ext}"
+    if not file.exists():
+        file = directory / f"default.{ext}"
 
-    set_enviroment_file(env_file)
-    return env_file
+    if not file.exists():
+        raise FileNotFoundError(f"No env file found in {directory}")
+
+    return anyconfig.load(file)
 
 
 def set_enviroment_file(path: Union[Path, str]) -> None:

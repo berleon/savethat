@@ -12,7 +12,8 @@ from typing import Any, Callable, Generic, Optional, TypeVar, Union
 
 import reproducible as reproducible_mod
 
-from savethat import env, io, utils
+from savethat import env as env_mod
+from savethat import io, log, utils
 from savethat.args import Args
 from savethat.log import logger
 
@@ -32,15 +33,15 @@ class HookHandle:
 _reproducible: Optional[reproducible_mod.Context] = None
 
 
-def get_reproducible(reload: bool = False) -> reproducible_mod.Context:
+def get_reproducible(
+    project_dir: io.PATH_LIKE, reload: bool = False
+) -> reproducible_mod.Context:
     global _reproducible
     if _reproducible is not None and not reload:
         return copy.deepcopy(_reproducible)
 
     reproducible = reproducible_mod.Context()
-    reproducible.add_repo(
-        path=str(env.infer_project_dir()), allow_dirty=True, diff=True
-    )
+    reproducible.add_repo(path=str(project_dir), allow_dirty=True, diff=True)
     reproducible.add_editable_repos()
     reproducible.add_pip_packages()
     reproducible.add_cpu_info()
@@ -92,6 +93,8 @@ class Node(Generic[ARGS, T], metaclass=abc.ABCMeta):
         self.storage = storage
         self.args = args
         self.env = env
+        self.project_dir = env_mod.get_project_dir()
+
         if reproducible is None:
             self.reproducible = self.init_reproducible()
 
@@ -103,8 +106,13 @@ class Node(Generic[ARGS, T], metaclass=abc.ABCMeta):
         )
         self._hooks_pre_run: dict[int, Callable[[Node[ARGS, T]], None]] = {}
         self._hooks_run: dict[int, Callable[[Node[ARGS, T], T], None]] = {}
-        self.logger = logger.bind(key=self.key)
+
+        self.register_pre_run_hook(self.setup_logger)
         self.setup()
+
+    def setup_logger(self, _: Node[ARGS, T]) -> None:
+        log.setup_logger(self.output_dir)
+        self.logger = logger.bind(key=self.key)
 
     @property
     def key_as_path(self) -> Path:
@@ -114,7 +122,7 @@ class Node(Generic[ARGS, T], metaclass=abc.ABCMeta):
         pass
 
     def init_reproducible(self) -> reproducible_mod.Context:
-        return get_reproducible()
+        return get_reproducible(self.project_dir)
 
     def register_pre_run_hook(
         self,
@@ -204,8 +212,8 @@ class Node(Generic[ARGS, T], metaclass=abc.ABCMeta):
 
 def create_node(
     node_cls: type[Node[ARGS, T]],
+    env: Union[io.PATH_LIKE, dict[str, Any]],
     args: Union[None, list[str], tuple[str], dict[str, Any], ARGS] = None,
-    env_file: Optional[io.PATH_LIKE] = None,
     key_prefix: Optional[str] = None,
 ) -> Node[ARGS, T]:
     """Creates a new node.
@@ -228,10 +236,11 @@ def create_node(
     else:  # args is None:
         parsed_args = args_cls.parse_args(args=sys.argv)
 
-    if env_file is None:
-        env_file = env.find_enviroment_file()
+    if isinstance(env, (Path, str)):
+        env_dict = env_mod.read_env_file(env)
+    else:
+        env_dict = env
 
-    env_dict = env.read_env_file(env_file)
     storage = io.B2Storage.from_env(env_dict)
     key = node_cls.create_new_key()
     if key_prefix:

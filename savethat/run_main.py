@@ -23,7 +23,7 @@ class MainRunner:
     def __init__(
         self,
         package: str,
-        env_file: Optional[io.PATH_LIKE] = None,
+        env_file: io.PATH_LIKE,
         argv: Optional[list[str]] = None,
     ):
         if argv is None:
@@ -32,15 +32,10 @@ class MainRunner:
             self.argv = argv
         use_debug = "--debug" in self.argv
 
+        self.env_file = env_file
         self.package = package
-        env.infer_project_dir(self.package)
 
-        if env_file is not None:
-            self.env_file = env_file
-        else:
-            self.env_file = env.find_enviroment_file(
-                env.infer_project_dir(self.package)
-            )
+        env.infer_project_dir(self.package)
 
         utils.import_submodules(package, ignore_errors=False)
         self.nodes = self.find_all_subclasses(debug=use_debug)
@@ -489,7 +484,7 @@ class MainRunner:
 
 def run_main(
     package: str,
-    env_file: Optional[io.PATH_LIKE] = None,
+    env_file: io.PATH_LIKE,
     argv: Optional[list[str]] = None,
 ) -> Optional[tuple[Node[ARGS, T], T]]:
     runner = MainRunner(package, env_file, argv)
