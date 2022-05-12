@@ -3,7 +3,6 @@ from __future__ import annotations
 import abc
 import copy
 import dataclasses
-import json
 import pickle
 import random
 import sys
@@ -176,8 +175,7 @@ class Node(Generic[ARGS, T], metaclass=abc.ABCMeta):
             args_file = str(self.output_dir / "args.json")
             self.args.save(args_file)
             self.logger.info(f"Saving arguments to: {args_file}")
-            with open(self.output_dir / "node.json", "w") as f:
-                json.dump(self._node_info(), f, indent=2)
+
             self.reproducible.export_json(self.output_dir / "reproducible.json")
 
             self.storage.upload(self.key)
