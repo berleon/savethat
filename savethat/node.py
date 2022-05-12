@@ -41,6 +41,7 @@ def get_reproducible(
 
     reproducible = reproducible_mod.Context()
     reproducible.add_repo(path=str(project_dir), allow_dirty=True, diff=True)
+
     reproducible.add_editable_repos()
     reproducible.add_pip_packages()
     reproducible.add_cpu_info()
@@ -218,9 +219,10 @@ def create_node(
 
     Args:
         node_cls: the class of the node
-        env_file: path to the env file
-        argv: comandline arguments used to creating the node's args.
-        args_dict: if given, the arguments will be loaded from this dict.
+        env: path to the env file
+        args: comandline arguments used to creating the node's args.
+        key_prefix: use this prefix for the key otherwise the node's class name
+            is used.
     """
 
     args_cls: type[ARGS] = node_cls.get_args_class()
