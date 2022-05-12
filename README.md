@@ -7,11 +7,12 @@ infrastructure (SLURM, servers), little time to spend on setup.
 
 This library provides the following things:
 
-* an API to create nodes executable from CLI
-* Reproducable experiments by [reproducible]()
-* Each node has an unique output directory which is synced to (Backblaze B2)[]
+* Simple way to create nodes executable from CLI
+* Each node has an unique output directory which is synced to [Backblaze B2]
 * A CLI to administer the remote storage
-* Logging by [loguru]()
+* The command line arguments are parsed by [typed-argument-parser]
+* Reproducable experiments by [reproducible]
+* Logging by [loguru]
 
 The main goal is to provide the necessary infrastructure to write reproducible
 research code. You can use this library with any DL framework.
@@ -162,6 +163,9 @@ See `python -m {{ cookiecutter.pkg_name }} rm  --help ` for more information.
 * The code is tested on Mac OS X and Linux, but not on Windows.
 
 
-
 [Tutorial]: https://github.com/berleon/savethat_cookiecutter/blob/master/docs/tutorial.md
 [Storage API Docs]: https://berleon.github.io/savethat/savethat/io.html
+[reproducible]: https://github.com/oist-cnru/reproducible
+[Backblaze B2]: https://www.backblaze.com/
+[loguru]: https://github.com/Delgan/loguru
+[typed-argument-parser]: https://github.com/swansonk14/typed-argument-parser
