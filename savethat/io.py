@@ -136,7 +136,7 @@ class Storage(metaclass=abc.ABCMeta):
         """
 
         run_infos = []
-        for run, run_files in self._find_runs(
+        for run, run_files in self.find_run_files(
             path,
             remote=remote,
             only_failed=only_failed,
