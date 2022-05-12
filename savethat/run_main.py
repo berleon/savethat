@@ -8,9 +8,8 @@ from pathlib import Path
 from typing import Iterator, Optional, TypeVar
 
 import anyconfig
-from loguru import logger
 
-from savethat import args, env, io, log
+from savethat import args, env, io, log, logger
 from savethat import node as node_mod
 from savethat import utils
 from savethat.node import Node
@@ -30,7 +29,11 @@ class MainRunner:
             self.argv = sys.argv[1:]
         else:
             self.argv = argv
-        use_debug = "--debug" in self.argv
+        if "--debug" == self.argv[0]:
+            self.argv = self.argv[1:]
+            log.setup_logger(stderr_level="DEBUG")
+        else:
+            log.setup_logger(stderr_level="INFO")
 
         self.env_file = env_file
         self.package = package
@@ -38,14 +41,13 @@ class MainRunner:
         env.infer_project_dir(self.package)
 
         utils.import_submodules(package, ignore_errors=False)
-        self.nodes = self.find_all_subclasses(debug=use_debug)
+        self.nodes = self.find_all_subclasses()
         self.create_parser()
 
     @staticmethod
-    def find_all_subclasses(debug: bool = False) -> list[type[Node]]:
+    def find_all_subclasses() -> list[type[Node]]:
         def all_subclasses(cls: type) -> set[type[Node]]:
-            if debug:
-                logger.info(f"Scanning: {cls.__module__}.{cls.__qualname__}")
+            logger.debug(f"Scanning: {cls.__module__}.{cls.__qualname__}")
             return set(cls.__subclasses__()).union(
                 [s for c in cls.__subclasses__() for s in all_subclasses(c)]
             )
@@ -387,6 +389,14 @@ class MainRunner:
         else:
             after = None
 
+        logger.debug(
+            f"Finding runs in {storage / ''} with prefix {self.args.path}",
+            remote=not local,
+            only_failed=self.args.failed,
+            only_completed=getattr(self.args, "completed", False),
+            before=before,
+            after=after,
+        )
         yield from storage.find_runs(
             self.args.path,
             remote=not local,
@@ -407,6 +417,7 @@ class MainRunner:
 
     def ls(self):
         storage = io.get_storage(self.env_file)
+
         for run, paths in self._ls_runs(
             storage, self.args.absolute, self.args.local
         ):

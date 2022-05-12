@@ -11,6 +11,8 @@ logger = loguru.logger
 def setup_logger(
     output_dir: Optional[Path] = None,
     bind: dict[str, Any] = {},
+    stderr_level: str = "INFO",
+    file_level: str = "DEBUG",
     # ) -> "loguru.Logger":
 ) -> None:
     _logger = loguru.logger.bind(**bind)
@@ -22,7 +24,7 @@ def setup_logger(
         " - <level>{message}</level>"
         " - {extra}"
     )
-    _logger.add(sys.stdout, colorize=True, format=format)
+    _logger.add(sys.stdout, colorize=True, format=format, level=stderr_level)
     if output_dir is not None:
         _logger.add(
             output_dir / "output.log",
@@ -30,7 +32,9 @@ def setup_logger(
             diagnose=True,
             format=format,
         )
-        _logger.add(output_dir / "output.jsonl", serialize=True)
+        _logger.add(
+            output_dir / "output.jsonl", serialize=True, level=file_level
+        )
         _logger.info(f"Use logger output_dir: {str(output_dir)}")
 
     global logger
