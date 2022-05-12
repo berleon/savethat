@@ -5,7 +5,7 @@ import datetime
 import inspect
 import sys
 from pathlib import Path
-from typing import Iterator, Optional, TypeVar
+from typing import Any, Iterator, Optional, TypeVar, Union
 
 import anyconfig
 
@@ -182,6 +182,12 @@ class MainRunner:
             help="List only locally stored runs.",
         )
         self.ls_parser.add_argument(
+            "--last",
+            default=None,
+            help="Remove runs in the last minutes / hours / days, "
+            "e.g. '1h' or '1d'. If no unit is specified, minutes are assumed.",
+        )
+        self.ls_parser.add_argument(
             "-a",
             "--absolute",
             action="store_true",
@@ -277,17 +283,19 @@ class MainRunner:
 
         return matched_nodes[0]
 
-    def _handle_help(self, parser: argparse.ArgumentParser) -> None:
+    def _print_help_and_exit(self, parser: argparse.ArgumentParser) -> bool:
         if self.args.help:
             if self.args.node_name == "":
                 parser.print_help()
-                sys.exit()
+                return True
             else:
                 # print the help message of the node
                 self.unknown_args.append("--help")
+        return False
 
-    def run(self):
-        self._handle_help(self.run_parser)
+    def run(self) -> Union[None, tuple[Node, Any]]:
+        if self._print_help_and_exit(self.run_parser):
+            return None
 
         node_name = self.args.node_name
         node_args = self.argv[self.argv.index(node_name) + 1 :]
@@ -317,11 +325,15 @@ class MainRunner:
                     )
                 node_args = anyconfig.load(self.args.config)
                 created_node: Node = node_mod.create_node(
-                    node_cls, node_args, env_file
+                    node_cls,
+                    env_file,
+                    node_args,
                 )
             else:
                 created_node = node_mod.create_node(
-                    node_cls, node_args, env_file
+                    node_cls,
+                    env_file,
+                    node_args,
                 )
             created_node.register_pre_run_hook(
                 lambda n: log.setup_logger(n.output_dir)
@@ -334,7 +346,7 @@ class MainRunner:
             )
         return created_node, result
 
-    def list_nodes(self):
+    def list_nodes(self) -> None:
         cls_names = [
             f"{cls.__module__}.{cls.__qualname__}" for cls in self.nodes
         ]
@@ -348,7 +360,6 @@ class MainRunner:
         print("")
         print("For more information on each analysis execute:")
         print(f"     python -m <your_package> run {cls_names[-1]} --help")
-        sys.exit(0)
 
     def _ls_runs(
         self,
