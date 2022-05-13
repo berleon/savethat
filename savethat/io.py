@@ -11,7 +11,7 @@ import time
 from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
-from typing import IO, Any, Iterable, Iterator, Optional, TypeVar, Union, cast
+from typing import IO, Any, Iterable, Iterator, Optional, TypeVar, Union
 
 import b2sdk.v2 as b2_api
 from loguru import logger
@@ -260,13 +260,20 @@ class B2Storage(Storage):
             self._bucket = self._connect_b2()
 
     @classmethod
-    def from_file(cls: type[STORAGE], env_file: PATH_LIKE) -> STORAGE:
-        env = env_mod.read_env_file(Path(env_file))
-        return cls.from_env(env)
+    def from_file(
+        cls: type[STORAGE],
+        package_name: str,
+        credential_file: Optional[PATH_LIKE],
+    ) -> STORAGE:
+        return cls.from_credentials(
+            env_mod.load_credentials(package_name, credential_file)
+        )
 
     @classmethod
-    def from_env(cls: type[STORAGE], env: dict[str, Any]) -> STORAGE:
-        if env.get("use_b2_simulation", False):
+    def from_credentials(
+        cls: type[STORAGE], credentials: env_mod.B2Credentials
+    ) -> STORAGE:
+        if credentials.skip_syncing:
             logger.info(
                 "Warning! You are using the B2 simulation. "
                 "Files will not be upload!"
@@ -277,22 +284,24 @@ class B2Storage(Storage):
             b2_key_id = fake_api.application_key_id
             b2_key = fake_api.master_key
         else:
-            b2_key_id = env.get("b2_key_id") or os.environ.get("B2_KEY_ID")
-            b2_key = env.get("b2_key", os.environ.get("B2_KEY"))
-            b2_bucket = cast(
-                str, env.get("b2_bucket") or os.environ.get("B2_BUCKET")
+            b2_key_id = credentials.b2_key_id or os.environ.get("B2_KEY_ID")
+            b2_key = credentials.b2_key or os.environ.get("B2_KEY")
+            b2_bucket = str(
+                credentials.b2_bucket or os.environ.get("B2_BUCKET")
             )
             bucket = None
-            logger.info(f"Using B2 bucket {b2_bucket}")
+            logger.debug(f"Using B2 bucket {b2_bucket}")
 
-        logger.info(f"Files will be stored locally at {env['local_path']} ")
+        logger.debug(
+            f"Files will be stored locally at {credentials.local_path}"
+        )
 
         assert isinstance(b2_key, str)
         assert isinstance(b2_key_id, str)
         assert isinstance(b2_bucket, str)
         return cls(
-            local_path=Path(env["local_path"]),
-            remote_path=Path(env["b2_prefix"]),
+            local_path=Path(credentials.local_path),
+            remote_path=Path(credentials.remote_path),
             b2_bucket=b2_bucket,
             b2_key_id=b2_key_id,
             b2_key=b2_key,
@@ -446,8 +455,12 @@ class B2Storage(Storage):
 _global_storage: Optional[Storage] = None
 
 
-def get_storage(env_file: PATH_LIKE, reload: bool = False) -> Storage:
+def get_storage(
+    package: str,
+    credential_file: Optional[PATH_LIKE] = None,
+    reload: bool = False,
+) -> Storage:
     global _global_storage
     if _global_storage is None or reload:
-        return B2Storage.from_file(env_file)
+        return B2Storage.from_file(package, credential_file)
     return _global_storage

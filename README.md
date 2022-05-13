@@ -9,7 +9,7 @@ This library provides the following things:
 * Simple way to create executable nodes.
 * A CLI interface to start and list experiments.
 
-`savethat` is specifically addressed for PhD students: limited budget, various compute infrastructure (SLURM, servers), little time to spend for the setup.
+`savethat` was built for PhD students: limited budget, various compute infrastructure (SLURM, servers), little time to spend for the setup.
 
 This library is mostly a wrapper around the following libraries:
 
@@ -36,22 +36,7 @@ See this **[Tutorial]** for a complete description of the setup process.
 
 ## Manual Setup
 
-First, create a config file with the B2 credentials:
-```toml
-# the data will be stored at this location
-local_path="${PROJECT_ROOT}/data_storage"
-
-# the B2 Key
-b2_key_id="XXXXXXXXXXX"
-b2_key="XXXXXXXXXXX"
-# name of the B2 bucket
-b2_bucket="my-b2-bucket"
-# prefix for this project
-b2_prefix="my_project"
-```
-You can signup at [B2 Cloud Storage](https://www.backblaze.com/b2/docs/quick_account.html).
-
-The next step is to make your project runnable by adding `my_project/__main__.py`:
+In case you want to add `savethat` to an existing project, you have to call the `savethat` command line interface. The easist way is to add the following to your `./your_package/__main__.py` file:
 
 ```python
 from pathlib import Path
@@ -67,6 +52,8 @@ if __name__ == "__main__":
     )
 
 ```
+
+You can now invoke it with `python -m your_package`.
 Suppose you created a subclass `FitOLS` of `savethat.Node` in the file `my_project/fit_ols.py`,
 then you could list the node:
 ```bash
@@ -190,19 +177,20 @@ for more details.
 
 To list all past runs:
 ```
-python -m {{ cookiecutter.pkg_name }} ls
+python -m my_project ls
 ```
 
 You can also select only runs starting with `FitOLS` that were completed
 successfully in the last 3 hours:
 ```
-python -m {{ cookiecutter.pkg_name }} ls FitOLS --completed --last 3h
+python -m my_project ls FitOLS --completed --last 3h
 ```
 
 You can also get the runs information from python:
 
 ```
-get_storage('savethat.toml').find_runs(
+
+savethat.get_storage('my_project').find_runs(
     'FitOLS',
     only_completed=True,
     after=datetime.now(timezone.utc) - timedelta(hours=3),  # all times are in utc
@@ -215,11 +203,11 @@ get_storage('savethat.toml').find_runs(
 All failed runs from the last 3 hours can be deleted with:
 
 ```
-python -m {{ cookiecutter.pkg_name }} rm FitOLS --failed --last 3h
+python -m my_project rm FitOLS --failed --last 3h
 ```
 The CLI would ask for confirmation before deleting all completed runs in the last 3 hours.
 You can use the `--force` flag to skip the confirmation.
-See `python -m {{ cookiecutter.pkg_name }} rm  --help ` for more information.
+See `python -m my_project rm  --help ` for more information.
 
 
 #### What is missing?

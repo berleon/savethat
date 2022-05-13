@@ -1,3 +1,0 @@
-local_path="${PROJECT_ROOT}/data"
-b2_prefix="test"
-use_b2_simulation=true

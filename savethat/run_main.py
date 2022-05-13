@@ -22,23 +22,50 @@ class MainRunner:
     def __init__(
         self,
         package: str,
-        env_file: io.PATH_LIKE,
+        credential_file: Optional[io.PATH_LIKE] = None,
         argv: Optional[list[str]] = None,
     ):
         if argv is None:
-            self.argv = sys.argv[1:]
+            self.all_argv = sys.argv[1:]
         else:
-            self.argv = argv
-        if "--debug" == self.argv[0]:
-            self.argv = self.argv[1:]
+            self.all_argv = argv
+
+        self.setup_parser = argparse.ArgumentParser(add_help=False)
+        self.setup_parser.add_argument(
+            "--credentials",
+            type=str,
+            default=None,
+            help="Path to the file with the B2 credentials.",
+        )
+        self.setup_parser.add_argument(
+            "--debug",
+            action="store_true",
+            help="Print debug information.",
+        )
+
+        first_no_dash = min(
+            (i for i, a in enumerate(self.all_argv) if not a.startswith("--")),
+            default=len(self.all_argv),
+        )
+
+        setup_args = self.all_argv[:first_no_dash]
+        if len(setup_args) > 0 and "--credentials" == setup_args[-1]:
+            setup_args.append(self.all_argv[first_no_dash])
+            self.argv = self.all_argv[first_no_dash + 1 :]
+        else:
+            self.argv = self.all_argv[first_no_dash:]
+
+        self.setup_args, _ = self.setup_parser.parse_known_args(setup_args)
+
+        if self.setup_args.debug:
             log.setup_logger(stderr_level="DEBUG")
         else:
             log.setup_logger(stderr_level="INFO")
 
-        self.env_file = env_file
-        self.package = package
+        self.credential_file = credential_file or self.setup_args.credentials
 
-        env.infer_project_dir(self.package)
+        self.package = package
+        self.project_dir = env.infer_project_dir(self.package)
 
         utils.import_submodules(package, ignore_errors=False)
         self.nodes = self.find_all_subclasses()
@@ -76,18 +103,22 @@ class MainRunner:
         # we need to use argparse as tap cannot handle subparsers properly.
         self.parser = argparse.ArgumentParser()
         self.parser.set_defaults(func=self.help)
-        subparsers = self.parser.add_subparsers()
+        self.subparsers = self.parser.add_subparsers()
 
         # ---------------------------------------------------------------
         # nodes
 
-        nodes_parser = subparsers.add_parser("nodes")
+        nodes_parser = self.subparsers.add_parser(
+            "nodes", description="List all nodes."
+        )
         nodes_parser.set_defaults(func=self.list_nodes)
 
         # ---------------------------------------------------------------
         # run
 
-        self.run_parser = subparsers.add_parser("run", add_help=False)
+        self.run_parser = self.subparsers.add_parser(
+            "run", description="Runs a node.", add_help=False
+        )
         self.run_parser.add_argument(
             "-h",
             "--help",
@@ -113,18 +144,20 @@ class MainRunner:
             default=None,
             help="path to a config file containing the node's parameters.",
         )
-        self.run_parser.add_argument(
-            "--env",
-            type=str,
-            default=None,
-            help="path to an enviroment file containing the B2 configuration.",
-        )
         self.run_parser.set_defaults(func=self.run)
 
         # ---------------------------------------------------------------
+        # setup_b2
+        setup_b2_parser = self.subparsers.add_parser(
+            "setup_b2", description="Setup B2 credentials.", add_help=True
+        )
+        setup_b2_parser.set_defaults(func=self.setup_b2)
+        # ---------------------------------------------------------------
         # download
 
-        download_parser = subparsers.add_parser("download", add_help=True)
+        download_parser = self.subparsers.add_parser(
+            "download", description="Downloads a run from B2.", add_help=True
+        )
         download_parser.set_defaults(func=self.download)
         download_parser.add_argument(
             "key",
@@ -135,7 +168,9 @@ class MainRunner:
         # ---------------------------------------------------------------
         # upload
 
-        upload_parser = subparsers.add_parser("upload", add_help=True)
+        upload_parser = self.subparsers.add_parser(
+            "upload", description="Uploads a run to B2.", add_help=True
+        )
         upload_parser.set_defaults(func=self.upload)
         upload_parser.add_argument(
             "key",
@@ -146,7 +181,9 @@ class MainRunner:
         # ---------------------------------------------------------------
         # ls
 
-        self.ls_parser = subparsers.add_parser("ls", add_help=True)
+        self.ls_parser = self.subparsers.add_parser(
+            "ls", description="List past runs.", add_help=True
+        )
         self.ls_parser.set_defaults(func=self.ls)
         self.ls_parser.add_argument(
             "-r", "--recursive", help="Recursively list files."
@@ -203,7 +240,9 @@ class MainRunner:
         # ---------------------------------------------------------------
         # rm
 
-        self.rm_parser = subparsers.add_parser("rm", add_help=False)
+        self.rm_parser = self.subparsers.add_parser(
+            "rm", description="Removes runs (local and remote).", add_help=False
+        )
         self.rm_parser.add_argument(
             "-h", "--help", action="store_true", help="Print help message."
         )
@@ -251,12 +290,26 @@ class MainRunner:
         )
         self.rm_parser.set_defaults(func=self.rm)
 
+    def get_credentials(
+        self, credentials_file: Optional[io.PATH_LIKE]
+    ) -> env.B2Credentials:
+        try:
+            return env.load_credentials(self.package, credentials_file)
+        except (FileNotFoundError, KeyError):
+            local_path = self.project_dir.parent / "data_storage"
+            credentials = env.B2Credentials.no_syncing(local_path)
+            logger.info(
+                "No B2 credentials found. Not syncing to cloud! "
+                "Run 'b2 setup' to set up credentials."
+            )
+            logger.info(f"Data will be stored in {local_path}.")
+            env.store_credentials(self.package, credentials, credentials_file)
+            return credentials
+
     def help(self) -> None:
         print("Here is a list with all available actions:", file=sys.stderr)
-        print("   run      Runs a node.", file=sys.stderr)
-        print("   nodes    List all available nodes.", file=sys.stderr)
-        print("   ls       List past runs.", file=sys.stderr)
-        print("   rm       Removes runs (local and remote).", file=sys.stderr)
+        for name, choice in self.subparsers.choices.items():
+            print(f"    {name:<10} {choice.description}", file=sys.stderr)
 
     def print_no_action(self) -> None:
         print("Error, no action was given!", file=sys.stderr)
@@ -303,8 +356,7 @@ class MainRunner:
 
         with utils.pdb_post_mortem(self.args.pdb):
 
-            env_file = self.args.env or self.env_file
-            assert env_file is not None
+            credentials_file = self.credential_file
 
             # if config is set and
 
@@ -324,17 +376,13 @@ class MainRunner:
                         f"Arguments: {self.unknown_args}\n"
                     )
                 node_args = anyconfig.load(self.args.config)
-                created_node: Node = node_mod.create_node(
-                    node_cls,
-                    env_file,
-                    node_args,
-                )
-            else:
-                created_node = node_mod.create_node(
-                    node_cls,
-                    env_file,
-                    node_args,
-                )
+
+            created_node: Node = node_mod.create_node(
+                node_cls,
+                node_args,
+                credentials=self.get_credentials(credentials_file),
+            )
+
             created_node.register_pre_run_hook(
                 lambda n: log.setup_logger(n.output_dir)
             )
@@ -418,16 +466,25 @@ class MainRunner:
             after=after,
         )
 
+    def get_storage(self) -> io.Storage:
+        credentials = self.get_credentials(self.credential_file)
+        return io.B2Storage.from_credentials(credentials)
+
+    def setup_b2(self) -> None:
+        env.setup_credentials(
+            self.project_dir, self.package, self.credential_file
+        )
+
     def download(self):
-        storage = io.get_storage(self.env_file)
+        storage = self.get_storage()
         storage.download(self.args.key[0])
 
     def upload(self):
-        storage = io.get_storage(self.env_file)
+        storage = self.get_storage()
         storage.upload(self.args.key[0])
 
     def ls(self):
-        storage = io.get_storage(self.env_file)
+        storage = self.get_storage()
 
         for run, paths in self._ls_runs(
             storage, self.args.absolute, self.args.local
@@ -439,7 +496,7 @@ class MainRunner:
                 print(str(run))
 
     def rm(self):
-        storage = io.get_storage(self.env_file)
+        storage = self.get_storage()
 
         if self.args.force:
             for run, _ in self._ls_runs(storage):
@@ -506,8 +563,8 @@ class MainRunner:
 
 def run_main(
     package: str,
-    env_file: io.PATH_LIKE,
+    credential_file: Optional[io.PATH_LIKE] = None,
     argv: Optional[list[str]] = None,
 ) -> Optional[tuple[Node[ARGS, T], T]]:
-    runner = MainRunner(package, env_file, argv)
+    runner = MainRunner(package, credential_file, argv)
     return runner()

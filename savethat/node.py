@@ -84,15 +84,17 @@ class Node(Generic[ARGS, T], metaclass=abc.ABCMeta):
     def __init__(
         self,
         key: io.PATH_LIKE,
-        storage: io.Storage,
         args: ARGS,
-        env: dict[str, Any],
+        storage: Optional[io.Storage] = None,
         reproducible: Optional[reproducible_mod.Context] = None,
     ):
         self.key: str = str(key)
+
+        if storage is None:
+            storage = io.get_storage(type(self).__module__.split(".")[0])
+
         self.storage = storage
         self.args = args
-        self.env = env
         self.project_dir = env_mod.get_project_dir()
 
         if reproducible is None:
@@ -211,8 +213,8 @@ class Node(Generic[ARGS, T], metaclass=abc.ABCMeta):
 
 def create_node(
     node_cls: type[Node[ARGS, T]],
-    env: Union[io.PATH_LIKE, dict[str, Any]],
     args: Union[None, list[str], tuple[str], dict[str, Any], ARGS] = None,
+    credentials: Optional[env_mod.B2Credentials] = None,
     key_prefix: Optional[str] = None,
 ) -> Node[ARGS, T]:
     """Creates a new node.
@@ -236,16 +238,15 @@ def create_node(
     else:  # args is None:
         parsed_args = args_cls.parse_args(args=sys.argv)
 
-    if isinstance(env, (Path, str)):
-        env_dict = env_mod.read_env_file(env)
+    if credentials is not None:
+        storage = io.B2Storage.from_credentials(credentials)
     else:
-        env_dict = env
+        storage = None
 
-    storage = io.B2Storage.from_env(env_dict)
     key = node_cls.create_new_key()
     if key_prefix:
         key = key_prefix + key
-    node = node_cls(key, storage, parsed_args, env_dict)
+    node = node_cls(key, parsed_args, storage)
     return node
 
 
@@ -277,18 +278,16 @@ def join(
         def _run(self):
             node1 = first(
                 self.key_as_path / node_name(first),
-                self.storage,
                 self.args,
-                self.env,
+                self.storage,
             )
 
             res1 = node1.run()
             args2 = operator(node1, res1)
             node2 = second(
                 self.key_as_path / node_name(second),
-                self.storage,
                 args2,
-                self.env,
+                self.storage,
             )
             return node2.run()
 

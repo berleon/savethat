@@ -86,12 +86,30 @@ use_parentheses = true
 
 
 [tool.pytest.ini_options]
-addopts = "--cov=savethat --cov-report html"
+addopts = "--cov-report html"
 testpaths = ['tests']
 filterwarnings = [
     'ignore:.*Create unlinked descriptors is going to go away.*:DeprecationWarning',
     # https://github.com/tensorflow/tensorboard/pull/5138
     'ignore:.*is a deprecated alias for the builtin.*:DeprecationWarning',
+]
+[tool.coverage.run]
+source = ['savethat']
+branch = true
+# uncomment the following to omit files during running
+# omit = []
+
+[tool.coverage.report]
+exclude_lines = [
+    'pragma: no cover',
+    'def __repr__',
+    'if self.debug:',
+    'if settings.DEBUG',
+    'raise AssertionError',
+    'raise NotImplementedError',
+    'if 0:',
+    'if __name__ == .__main__.:',
+    'def main'
 ]
 
 [tool.mypy]

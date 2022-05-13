@@ -1,9 +1,11 @@
 import dataclasses
 import random
+from pathlib import Path
 from typing import Any
 
 import pytest
 
+import savethat
 from savethat import io
 from savethat import node as node_mod
 
@@ -43,7 +45,7 @@ def test_run_node(storage: io.Storage, env: dict[str, Any]) -> None:
     args = SampleIntArgs(max=10)
     # storage.remove("test_sample_int", remote=True)
 
-    node = SampleInt("test_sample_int", storage, args, env)
+    node = SampleInt("test_sample_int", args, storage)
     result = node.run()
     assert result <= 10
 
@@ -55,7 +57,11 @@ def test_run_node(storage: io.Storage, env: dict[str, Any]) -> None:
     assert "test_sample_int/result.txt" in files
 
 
-def test_run_pipeline(storage: io.Storage, env: dict[str, Any]) -> None:
+def test_run_pipeline(storage: io.Storage) -> None:
+
+    test_dir = Path(__file__).parent.absolute()
+    savethat.set_project_dir(test_dir)
+
     pipeline = node_mod.join(
         SampleInt,
         Print,
@@ -63,4 +69,4 @@ def test_run_pipeline(storage: io.Storage, env: dict[str, Any]) -> None:
     )
     args = SampleIntArgs(max=20)
 
-    pipeline("test_pipeline", storage, args, env).run()
+    pipeline("test_pipeline", args, storage).run()

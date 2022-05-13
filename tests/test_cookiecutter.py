@@ -6,6 +6,8 @@ from pathlib import Path
 import pytest
 from cookiecutter.main import cookiecutter
 
+from savethat import env
+
 
 @pytest.fixture
 def template_dir(tmp_path: Path) -> Path:
@@ -19,7 +21,7 @@ def template_dir(tmp_path: Path) -> Path:
     return tmp / f"savethat-cookiecutter-of-{user}" / f"template-{number}"
 
 
-def test_cookie_template(template_dir: Path) -> None:
+def test_cookie_template(tmp_path: Path, template_dir: Path) -> None:
     # Create project from the cookiecutter-pypackage/ template
 
     location = os.environ.get(
@@ -46,10 +48,20 @@ def test_cookie_template(template_dir: Path) -> None:
 
     this_dir = Path(__file__).parent
     savethat_dir = this_dir.parent.absolute()
+
+    credential_file = tmp_path / "credentails.toml"
+
+    env.store_credentials(
+        "test_template",
+        env.B2Credentials.no_syncing(tmp_path / "data_storage"),
+        credential_file,
+    )
+
     proc = subprocess.Popen(
         [
             str(this_dir / "run_tests_of_cookiecutter_template.sh"),
             str(savethat_dir),
+            str(credential_file),
         ],
         cwd=str(project_dir),
         stdout=subprocess.PIPE,

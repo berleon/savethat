@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import dataclasses
 import getpass
 import importlib
+import os
 import socket
 from pathlib import Path
 from typing import Any, Optional, Union
@@ -14,7 +16,6 @@ from loguru import logger
 
 
 _project_dir: Optional[Path] = None
-_enviroment_file: Optional[Path] = None
 
 
 def set_project_dir(path: Path) -> None:
@@ -70,30 +71,101 @@ def load_host_settings(directory: Path, ext: str = "toml") -> dict[str, Any]:
     return anyconfig.load(file)
 
 
-def set_enviroment_file(path: Union[Path, str]) -> None:
-    global _enviroment_file
-    _enviroment_file = Path(path)
+def _get_credential_file(file_name: Union[Path, str, None] = None) -> Path:
+    if file_name is None:
+        return Path(
+            os.environ.get(
+                "SAVETHAT_CREDENTIALS", "~/savethat_credentials.toml"
+            )
+        ).expanduser()
+    else:
+        return Path(file_name)
 
 
-def read_env_file(path: Union[Path, str]) -> dict[str, Any]:
-    def _replace_placeholder(value: Any) -> Any:
-        if isinstance(value, str):
-            if "${PROJECT_ROOT}" in value:
-                if _project_dir is None:
-                    raise ValueError(
-                        "project_dir is not set. Use set_project_dir()"
-                    )
-                return value.replace("${PROJECT_ROOT}", str(_project_dir))
-            else:
-                return value
-        else:
-            return value
+@dataclasses.dataclass
+class B2Credentials:
+    b2_key_id: str
+    b2_key: str
+    b2_bucket: str
+    remote_path: str
+    local_path: str
+    skip_syncing: bool = False
 
-    logger.info(
-        f"Loading env from file: {str(path)}",
-        file=str(path),
-        project_dir=str(_project_dir),
-    )
-    with open(path) as f:
-        env = dict(toml.load(f))
-    return {k: _replace_placeholder(v) for k, v in env.items()}
+    @staticmethod
+    def no_syncing(local_path: Union[str, Path]) -> B2Credentials:
+        return B2Credentials(
+            "", "", "", "", local_path=str(local_path), skip_syncing=True
+        )
+
+
+def load_credentials(
+    package_name: str, file_name: Union[Path, str, None] = None
+) -> B2Credentials:
+    credential_file = _get_credential_file(file_name)
+    logger.debug(f"Reading credentials from {credential_file}")
+    with open(credential_file) as f:
+        return B2Credentials(**anyconfig.load(f)[package_name])
+
+
+def store_credentials(
+    package_name: str,
+    credentials: B2Credentials,
+    file_name: Union[None, str, Path] = None,
+) -> None:
+    credential_file = _get_credential_file(file_name)
+    logger.debug(f"Saving credentials to {credential_file}")
+
+    if credential_file.exists():
+        with open(credential_file) as f:
+            config = toml.load(f)
+    else:
+        config = {}
+
+    config[package_name] = dataclasses.asdict(credentials)
+
+    with open(credential_file, "w") as f:
+        toml.dump(config, f)
+
+
+def setup_credentials(
+    project_dir: Path,
+    package: str,
+    credential_file: Union[str, Path, None] = None,
+) -> B2Credentials:
+    """Setup the credentials for the B2 service."""
+
+    def get_local_storage() -> str:
+        default_local_storage = str(project_dir.parent / "data_storage")
+        local_storage = input(
+            f"Path of the local datastorage: [{default_local_storage}]"
+        )
+        if local_storage == "":
+            local_storage = default_local_storage
+        return local_storage
+
+    print("Setting up B2 credentials")
+    print()
+    if input("Do you want to set up remote syncing? [y/n]").lower() != "y":
+        print("Skipping remote syncing.")
+        print("Warning: Your runs will not be synced to the cloud.")
+        credentials = B2Credentials.no_syncing(get_local_storage())
+
+    else:
+        b2_key_id = input("Enter your B2 account KEY ID: ")
+        b2_key = input("Enter your B2 account KEY: ")
+        b2_bucket = input("Enter your B2 bucket name: ")
+        b2_prefix = input(
+            f"Enter your B2 bucket prefix: [default: '{package}']"
+        )
+        if b2_prefix == "":
+            b2_prefix = package
+        credentials = B2Credentials(
+            b2_key_id,
+            b2_key,
+            b2_bucket,
+            b2_prefix,
+            local_path=get_local_storage(),
+        )
+
+    store_credentials(package, credentials, credential_file)
+    return credentials
