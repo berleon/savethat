@@ -24,6 +24,7 @@ class MainRunner:
         package: str,
         credential_file: Optional[io.PATH_LIKE] = None,
         argv: Optional[list[str]] = None,
+        project_dir: Optional[io.PATH_LIKE] = None,
     ):
         if argv is None:
             self.all_argv = sys.argv[1:]
@@ -65,10 +66,12 @@ class MainRunner:
         self.credential_file = credential_file or self.setup_args.credentials
 
         self.package = package
-        self.project_dir = env.infer_project_dir(self.package)
 
-        utils.import_submodules(package, ignore_errors=False)
-        self.nodes = self.find_all_subclasses()
+        if project_dir is not None:
+            self.project_dir = Path(project_dir)
+        else:
+            self.project_dir = env.infer_project_dir(self.package)
+
         self.create_parser()
 
     @staticmethod
@@ -95,6 +98,10 @@ class MainRunner:
             qualified_subclasses,
             key=lambda c: (c.__module__, c.__qualname__),
         )
+
+    def get_nodes(self) -> list[type[Node]]:
+        utils.import_submodules(self.package, ignore_errors=False)
+        return self.find_all_subclasses()
 
     def create_parser(
         self,
@@ -319,13 +326,14 @@ class MainRunner:
         )
 
     def get_node(self, node_name: str) -> type[Node[ARGS, T]]:
+        nodes = self.get_nodes()
         matched_nodes = []
         if "." in node_name:
-            for node in self.nodes:
+            for node in nodes:
                 if f"{node.__module__}.{node.__qualname__}" == node_name:
                     matched_nodes.append(node)
         else:
-            for node in self.nodes:
+            for node in nodes:
                 if node.__qualname__ == node_name:
                     matched_nodes.append(node)
 
@@ -395,13 +403,12 @@ class MainRunner:
         return created_node, result
 
     def list_nodes(self) -> None:
-        cls_names = [
-            f"{cls.__module__}.{cls.__qualname__}" for cls in self.nodes
-        ]
+        nodes = self.get_nodes()
+        cls_names = [f"{cls.__module__}.{cls.__qualname__}" for cls in nodes]
         cls_length = max(len(cls_name) for cls_name in cls_names)
         print("")
         print("Found the following executable nodes:")
-        for cls_name, cls in zip(cls_names, self.nodes):
+        for cls_name, cls in zip(cls_names, nodes):
             first_doc_line = (cls.__doc__ or "[no docstring]").split("\n")[0]
             print(f"    {cls_name.ljust(cls_length)}  - {first_doc_line}")
 
