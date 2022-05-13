@@ -1,5 +1,10 @@
 # savethat - Save your ML experiments in one place
 
+[![Build Status](https://github.com/berleon/savethat/actions/workflows/dev.yml/badge.svg)](https://github.com/berleon/savethat/actions/workflows/dev.yml)
+[![codecov](https://codecov.io/gh/berleon/savethat/branch/main/graphs/badge.svg)](https://codecov.io/github/berleon/savethat)
+
+
+
 The main goal of `savethat` is to provide the necessary infrastructure to write reproducible
 research code. You can use this library with any DL framework.
 
