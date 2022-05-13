@@ -54,7 +54,7 @@ def infer_project_dir(package: str) -> Path:
             "look like a python package."
         )
     _project_dir = project_dir
-    logger.info(f"Using {project_dir} as project dir", project_dir=project_dir)
+    logger.debug(f"Using {project_dir} as project dir", project_dir=project_dir)
     return project_dir
 
 
@@ -75,7 +75,7 @@ def _get_credential_file(file_name: Union[Path, str, None] = None) -> Path:
     if file_name is None:
         return Path(
             os.environ.get(
-                "SAVETHAT_CREDENTIALS", "~/savethat_credentials.toml"
+                "SAVETHAT_CREDENTIALS", "~/.savethat_credentials.toml"
             )
         ).expanduser()
     else:
@@ -123,8 +123,16 @@ def store_credentials(
 
     config[package_name] = dataclasses.asdict(credentials)
 
-    with open(credential_file, "w") as f:
+    tmp_cred_file = credential_file.with_suffix(".tmp")
+    # create file
+    tmp_cred_file.write_text("")
+    tmp_cred_file.chmod(0o600)
+
+    with open(tmp_cred_file, "w") as f:
         toml.dump(config, f)
+
+    tmp_cred_file.rename(credential_file)
+    credential_file.chmod(0o600)
 
 
 def setup_credentials(
@@ -168,4 +176,6 @@ def setup_credentials(
         )
 
     store_credentials(package, credentials, credential_file)
+    print()
+    print(f"Credentials successfully stored at: {credential_file}")
     return credentials
